@@ -1,53 +1,46 @@
 # Quickstart Guide
 
-For a fast setup of the Behavioral Authentication System.
-
 ## Prerequisites
-- Python 3.8+
-- Node.js 14+
+- Python 3.9+
 
-## 1. Backend Setup
+## 1. Install Backend Dependencies
 
-Open a terminal in the `backend` folder:
 ```bash
 cd backend
 pip install -r requirements.txt
-# If pip fails, try: python -m pip install -r requirements.txt
-# Note: You might need to manually install flask-cors: pip install flask-cors
+cd ..
 ```
 
-Start the API server (Terminal 1):
+## 2. Configure Environment
+
 ```bash
-python api/auth_api.py
-# Runs on http://0.0.0.0:5000
+cp .env.example .env
 ```
 
-Start the WebSocket server (Terminal 2):
+Adjust values in `.env` if needed (`APP_PORT`, `DB_PATH`, `FRONTEND_DIR`, etc.).
+
+## 3. Run Services
+
+Terminal 1: FastAPI app (API + frontend static)
 ```bash
+uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
+```
+
+Terminal 2: Behavioral websocket server
+```bash
+cd backend
 python websocket_server.py
-# Runs on ws://localhost:8765
 ```
 
-## 2. Frontend Setup
+## 4. Open the App
+- Login UI: `http://localhost:5000/login/login.html`
+- Health: `http://localhost:5000/health`
+- API docs: `http://localhost:5000/docs`
 
-Open a terminal in the `frontend` folder (Terminal 3):
-```bash
-cd frontend
-npm install
-npm start
-# Server runs on http://localhost:3000
-```
-
-## 3. Usage Flow
-
-1.  Open your browser to `http://localhost:3000`.
-2.  You will be redirected to the login page.
-3.  Enter any **username** (e.g., `user1`) and click **Start Session**.
-4.  You will be redirected to the **Calibration Page**.
-5.  Type the given phrase to register your baseline behavior.
-6.  Click **Complete Calibration** to enter the Dashboard.
-
-## Troubleshooting
-
--   **Database Error**: If you see errors about `users.db`, delete the file in `backend/` and restart the backend processes.
--   **Connection Error**: Ensure both `auth_api.py` and `websocket_server.py` are running.
+## Core Endpoints
+- `POST /query`
+- `POST /upload`
+- `GET /health`
+- `POST /api/start-session`
+- `POST /api/login`
+- `POST /api/behavioral-profile`

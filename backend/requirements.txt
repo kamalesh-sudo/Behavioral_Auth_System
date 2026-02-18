@@ -7,9 +7,10 @@ scipy
 matplotlib
 seaborn
 jupyter
-flask
-flask-cors
-flask-socketio
+fastapi
+uvicorn[standard]
+pydantic-settings
+python-multipart
 cryptography
 pycryptodome
 optuna

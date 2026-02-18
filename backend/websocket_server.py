@@ -3,9 +3,17 @@ import websockets
 import json
 import logging
 import os
+import sys
 from ml.behavioral_analyzer import BehavioralAnalyzer
-from database.user_db import UserDatabase
 from datetime import datetime
+
+# Allow importing the new FastAPI package when running from backend/.
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT_DIR not in sys.path:
+    sys.path.append(ROOT_DIR)
+
+from app.core.config import get_settings
+from app.db.user_db import UserDatabase
 
 # A simple, hardcoded token for authentication.
 # In a real application, this should be a securely generated and managed token.
@@ -13,8 +21,9 @@ AUTH_TOKEN = os.environ.get("AUTH_TOKEN", "your-secret-auth-token")
 
 class BehavioralWebSocketServer:
     def __init__(self):
+        settings = get_settings()
         self.analyzer = BehavioralAnalyzer()
-        self.db = UserDatabase()
+        self.db = UserDatabase(settings.db_path)
         # Ensure models directory exists
         if not os.path.exists('models'):
             os.makedirs('models')
