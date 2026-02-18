@@ -1,16 +1,16 @@
 from pydantic import BaseModel, Field
 
 
-class CredentialsRequest(BaseModel):
+class Credentials(BaseModel):
     username: str = Field(min_length=1, max_length=128)
     password: str = Field(min_length=1, max_length=256)
 
 
-class LoginRequest(CredentialsRequest):
+class LoginPayload(Credentials):
     risk_score: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
-class BehavioralProfileRequest(BaseModel):
+class BehavioralProfilePayload(BaseModel):
     user_id: int = Field(gt=0)
     session_id: str = Field(min_length=1, max_length=256)
     keystroke_data: list[dict] = Field(default_factory=list)
@@ -18,28 +18,25 @@ class BehavioralProfileRequest(BaseModel):
     risk_score: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
-class RegisterResponse(BaseModel):
+class QueryPayload(BaseModel):
+    query: str = Field(min_length=1)
+    session_id: str | None = Field(default=None, max_length=256)
+    context: dict | None = None
+
+
+class QueryResult(BaseModel):
     success: bool
-    message: str
-    user_id: int
-    username: str
+    answer: str
+    confidence: float = Field(ge=0.0, le=1.0)
+    session_id: str | None = None
 
 
-class SessionResponse(BaseModel):
+class UploadResult(BaseModel):
     success: bool
-    user_id: int
-    username: str
-    is_new: bool | None = None
-
-
-class LoginResponse(BaseModel):
-    success: bool
-    message: str | None = None
-    user_id: int | None = None
-    username: str | None = None
-    risk_score: float | None = None
-    requires_mfa: bool | None = None
-    error: str | None = None
+    filename: str
+    content_type: str
+    size_bytes: int
+    stored_at: str
 
 
 class UserInfo(BaseModel):
@@ -50,7 +47,7 @@ class UserInfo(BaseModel):
     is_active: int
 
 
-class UserResponse(BaseModel):
+class UserResult(BaseModel):
     success: bool
     user: UserInfo
 
@@ -61,11 +58,6 @@ class BehavioralHistoryItem(BaseModel):
     timestamp: str
 
 
-class BehavioralHistoryResponse(BaseModel):
+class BehavioralHistoryResult(BaseModel):
     success: bool
     history: list[BehavioralHistoryItem]
-
-
-class BehavioralProfileResponse(BaseModel):
-    success: bool
-    message: str

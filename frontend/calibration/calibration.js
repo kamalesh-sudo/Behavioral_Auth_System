@@ -2,10 +2,10 @@ class CalibrationHandler {
     constructor() {
         this.targetText = document.getElementById('targetText').innerText.trim();
         this.inputArea = document.getElementById('typingInput');
-        this.completeButton = document.getElementById('completeButton');
         this.progressFill = document.getElementById('progressFill');
         this.charCount = document.getElementById('charCount');
         this.totalChars = document.getElementById('totalChars');
+        this.isSubmitting = false;
 
         this.keystrokeData = [];
         this.mouseData = [];
@@ -26,6 +26,7 @@ class CalibrationHandler {
 
         this.setupEventListeners();
         this.connectWebSocket();
+        this.inputArea.focus();
     }
 
     connectWebSocket() {
@@ -61,8 +62,6 @@ class CalibrationHandler {
         this.inputArea.addEventListener('keydown', (e) => this.recordKeyDown(e));
         this.inputArea.addEventListener('keyup', (e) => this.recordKeyUp(e));
 
-        this.completeButton.addEventListener('click', () => this.finishCalibration());
-
         // Mouse tracking
         document.addEventListener('mousemove', (e) => this.recordMouseMove(e));
         document.addEventListener('click', (e) => this.recordClick(e));
@@ -81,10 +80,9 @@ class CalibrationHandler {
         this.progressFill.style.width = `${progress}%`;
         this.charCount.textContent = currentText.length;
 
-        if (currentText.length >= this.targetText.length * 0.9) {
-            this.completeButton.disabled = false;
-        } else {
-            this.completeButton.disabled = true;
+        if (!this.isSubmitting && currentText.length >= this.targetText.length * 0.9) {
+            document.getElementById('statusText').textContent = 'Calibration complete. Finalizing session...';
+            this.finishCalibration();
         }
     }
 
@@ -150,6 +148,11 @@ class CalibrationHandler {
     }
 
     finishCalibration() {
+        if (this.isSubmitting) {
+            return;
+        }
+        this.isSubmitting = true;
+
         // Send data to backend
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
             const payload = {
@@ -175,6 +178,7 @@ class CalibrationHandler {
                 window.location.href = '../dashboard/index.html';
             }, 1000);
         } else {
+            this.isSubmitting = false;
             alert('Connection lost. Please refresh and try again.');
         }
     }

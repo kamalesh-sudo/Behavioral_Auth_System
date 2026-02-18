@@ -1,27 +1,22 @@
-# Login + Behavioral Authentication
+# Login Frontend
 
-The login UI sends credential/session calls to FastAPI and behavioral telemetry to the websocket analyzer.
+This page is served directly by FastAPI and uses:
+- REST API at `http://localhost:5000/api/...`
+- WebSocket analyzer at `ws://localhost:8765`
 
-## Runtime
+## Run backend
 
-1. FastAPI (API + static frontend):
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
 ```
 
-2. WebSocket analyzer:
+## Run websocket analyzer
+
 ```bash
 cd backend
 python websocket_server.py
 ```
 
-## URLs
-- Login page: `http://localhost:5000/login/login.html`
-- API docs: `http://localhost:5000/docs`
+## Open login
 
-## Primary API calls used by login flow
-- `POST /api/start-session`
-- `POST /api/login`
-- `POST /api/behavioral-profile`
-- `GET /api/user/{username}`
-- `GET /api/user/{user_id}/behavioral-history?limit=10`
+`http://localhost:5000/login/login.html`

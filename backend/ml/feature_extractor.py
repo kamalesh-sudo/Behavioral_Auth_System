@@ -1,7 +1,5 @@
 # feature_extractor.py
 import numpy as np
-from scipy import stats
-from scipy.signal import find_peaks
 import pandas as pd
 
 class BehavioralFeatureExtractor:

@@ -7,6 +7,7 @@ class LoginBehavioralCollector {
         this.socket = null;
         this.currentRiskScore = 0;
         this.isCollecting = false;
+        this.sessionTerminated = false;
 
         this.init();
     }
@@ -69,7 +70,9 @@ class LoginBehavioralCollector {
                 this.updateStatus('Disconnected', 'warning');
 
                 // Attempt to reconnect after 3 seconds
-                setTimeout(() => this.connectWebSocket(), 3000);
+                if (!this.sessionTerminated) {
+                    setTimeout(() => this.connectWebSocket(), 3000);
+                }
             };
         } catch (error) {
             console.error('Failed to connect WebSocket:', error);
@@ -96,9 +99,28 @@ class LoginBehavioralCollector {
                 case 'error':
                     this.showAlert(data.message, 'error');
                     break;
+
+                case 'session_terminated':
+                    this.terminateSession(data.reason || 'Session terminated due to anomaly detection');
+                    break;
             }
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
+        }
+    }
+
+    terminateSession(reason) {
+        this.sessionTerminated = true;
+        this.isCollecting = false;
+        this.keystrokeData = [];
+        this.mouseData = [];
+        this.updateStatus('Session terminated', 'error');
+        this.showAlert(reason, 'error');
+        localStorage.removeItem('user_id');
+        localStorage.removeItem('username');
+        localStorage.removeItem('session_id');
+        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            this.socket.close();
         }
     }
 
@@ -182,6 +204,10 @@ class LoginBehavioralCollector {
     }
 
     sendBehavioralData() {
+        if (this.sessionTerminated) {
+            return;
+        }
+
         if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
             return;
         }
@@ -255,7 +281,7 @@ class LoginBehavioralCollector {
                     window.location.href = '../calibration/calibration.html';
                 }, 1000);
             } else {
-                this.showAlert(result.error || 'Failed to start session', 'error');
+                this.showAlert(result.detail || result.error || 'Failed to start session', 'error');
                 loginButton.disabled = false;
                 loginButton.querySelector('.button-text').textContent = 'Start Session';
             }

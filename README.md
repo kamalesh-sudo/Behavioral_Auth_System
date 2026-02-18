@@ -1,44 +1,31 @@
 # Behavioral Authentication System
 
-Behavioral authentication platform with a Python-only backend stack:
-- FastAPI for REST endpoints and static frontend serving
-- WebSocket behavioral analyzer for real-time risk scoring
-- SQLite-backed user/session/profile data
+Clean, Python-first behavioral auth project with two runtime components:
+- FastAPI app for REST APIs + static frontend serving
+- WebSocket server for real-time behavioral risk scoring
 
-## FastAPI Layout
+## Project Structure
 
 ```text
 app/
-  main.py
-  api/v1/endpoints/
-    auth.py
-    agent.py
-    health.py
-  core/config.py
-  db/
-    dependencies.py
-    user_db.py
-  models/
-  schemas/
-  services/
+  config.py        # Environment settings
+  database.py      # SQLite auth/profile storage
+  schemas.py       # Pydantic request/response models
+  main.py          # FastAPI routes + static mounts
 backend/
   websocket_server.py
+  ml/
+  models/
+frontend/
+  login/
+  calibration/
+  dashboard/
+  collector/
 tests/
-  utils/
+  smoke_test.py
 ```
 
-## Key Endpoints
-
-- `POST /query` and `POST /api/v1/query`
-- `POST /upload` and `POST /api/v1/upload`
-- `GET /health` and `GET /api/v1/health`
-- `POST /api/start-session`
-- `POST /api/login`
-- `POST /api/behavioral-profile`
-- `GET /api/user/{username}`
-- `GET /api/user/{user_id}/behavioral-history`
-
-## Run
+## Start
 
 ```bash
 cd backend
@@ -48,13 +35,23 @@ cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
 ```
 
-Optional websocket analyzer:
+Optional websocket server (recommended for behavioral scoring):
 
 ```bash
 cd backend
 python websocket_server.py
 ```
 
-Frontend static pages are served by FastAPI at:
-- `http://localhost:5000/login/login.html`
-- `http://localhost:5000/dashboard/index.html`
+## Main Endpoints
+
+- `GET /health`
+- `POST /query`
+- `POST /upload`
+- `POST /api/register`
+- `POST /api/start-session`
+- `POST /api/login`
+- `POST /api/behavioral-profile`
+- `GET /api/user/{username}`
+- `GET /api/user/{user_id}/behavioral-history`
+
+Frontend pages are served at `http://localhost:5000`.

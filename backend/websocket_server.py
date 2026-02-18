@@ -12,8 +12,8 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
 
-from app.core.config import get_settings
-from app.db.user_db import UserDatabase
+from app.config import get_settings
+from app.database import AuthDatabase
 
 # A simple, hardcoded token for authentication.
 # In a real application, this should be a securely generated and managed token.
@@ -22,8 +22,9 @@ AUTH_TOKEN = os.environ.get("AUTH_TOKEN", "your-secret-auth-token")
 class BehavioralWebSocketServer:
     def __init__(self):
         settings = get_settings()
+        self.settings = settings
         self.analyzer = BehavioralAnalyzer()
-        self.db = UserDatabase(settings.db_path)
+        self.db = AuthDatabase(settings.db_path)
         # Ensure models directory exists
         if not os.path.exists('models'):
             os.makedirs('models')
@@ -34,6 +35,32 @@ class BehavioralWebSocketServer:
         if not self.analyzer.is_trained:
             print("Models not found or not trained. Training with dummy data...")
             self._train_initial_models()
+
+    async def terminate_session(self, session_id, user_id, risk_score, reason):
+        payload = {
+            "type": "session_terminated",
+            "sessionId": session_id,
+            "userId": user_id,
+            "riskScore": risk_score,
+            "reason": reason,
+            "blocked": True,
+            "timestamp": datetime.now().isoformat(),
+        }
+
+        ws = self.user_sessions.get(session_id, {}).get("websocket", None)
+        try:
+            if ws:
+                await ws.send(json.dumps(payload))
+        except Exception:  # pylint: disable=broad-except
+            pass
+
+        if ws:
+            try:
+                await ws.close(code=1008, reason="Session terminated due to behavioral anomaly")
+            except Exception:  # pylint: disable=broad-except
+                pass
+
+        self.user_sessions.pop(session_id, None)
 
     def _train_initial_models(self):
         # Generate some dummy data for initial training
@@ -131,9 +158,9 @@ class BehavioralWebSocketServer:
             'last_activity': datetime.now(),
             'risk_score': risk_score
         }
-        
+
         # Save behavioral profile to database if user exists
-        user_info = self.db.get_user_by_username(user_id)
+        user_info = self.db.get_user(user_id)
         if user_info.get('success'):
             self.db.save_behavioral_profile(
                 user_info['user']['id'],
@@ -142,6 +169,12 @@ class BehavioralWebSocketServer:
                 mouse_data,
                 risk_score
             )
+
+        if risk_score >= self.settings.anomaly_block_threshold:
+            block_reason = "Behavioral anomaly detected in real-time monitoring"
+            self.db.block_user(user_id, session_id, risk_score, block_reason)
+            await self.terminate_session(session_id, user_id, risk_score, block_reason)
+            return
         
         # Send response
         response = {
@@ -171,6 +204,16 @@ class BehavioralWebSocketServer:
         user_id = data.get('userId')
         session_id = data.get('sessionId')
         logging.info(f"User authentication received: userId={user_id}, sessionId={session_id}")
+
+        user_info = self.db.get_user(user_id)
+        if user_info.get("success") and not bool(user_info["user"].get("is_active", 1)):
+            await self.terminate_session(
+                session_id=session_id,
+                user_id=user_id,
+                risk_score=1.0,
+                reason="User account is blocked due to anomaly detection",
+            )
+            return
         
         # Create a new user profile if one doesn't exist
         if user_id not in self.analyzer.user_profiles:
