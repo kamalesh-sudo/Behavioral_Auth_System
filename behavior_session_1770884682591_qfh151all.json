@@ -1,0 +1,2541 @@
+{
+  "session_id": "session_1770884682591_qfh151all",
+  "keystroke_data": [
+    {
+      "type": "keydown",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 3999.2000000000116,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keydown",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 4081.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 4129.5,
+      "dwellTime": 130.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keyup",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 4154.200000000012,
+      "dwellTime": 72.59999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 87,
+      "key": "w",
+      "timestamp": 4247.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 87,
+      "key": "w",
+      "timestamp": 4265.700000000012,
+      "dwellTime": 18.099999999976717,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 87,
+      "key": "w",
+      "timestamp": 4296.800000000047,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 4316.400000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 87,
+      "key": "w",
+      "timestamp": 4359,
+      "dwellTime": 62.199999999953434,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 4415.400000000023,
+      "dwellTime": 99,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 4983,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 5063.5,
+      "dwellTime": 80.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 5136.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 5273.900000000023,
+      "dwellTime": 137.40000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 5443.400000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 5584.400000000023,
+      "dwellTime": 141,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 6021.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 6109,
+      "dwellTime": 87.39999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 6227.200000000012,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 6288.100000000035,
+      "dwellTime": 60.90000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 6431.700000000012,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 6467.900000000023,
+      "dwellTime": 36.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 6550.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 6700.100000000035,
+      "dwellTime": 149.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 81,
+      "key": "q",
+      "timestamp": 7162.800000000047,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 81,
+      "key": "q",
+      "timestamp": 7288.300000000047,
+      "dwellTime": 125.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 85,
+      "key": "u",
+      "timestamp": 8146.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 85,
+      "key": "u",
+      "timestamp": 8236.800000000047,
+      "dwellTime": 90.30000000004657,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 73,
+      "key": "i",
+      "timestamp": 8365.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 73,
+      "key": "i",
+      "timestamp": 8486.600000000035,
+      "dwellTime": 121,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 67,
+      "key": "c",
+      "timestamp": 8519.700000000012,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 67,
+      "key": "c",
+      "timestamp": 8651.900000000023,
+      "dwellTime": 132.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 8755.200000000012,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 8814.400000000023,
+      "dwellTime": 59.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 9416.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 9479.700000000012,
+      "dwellTime": 63.09999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 75,
+      "key": "k",
+      "timestamp": 10846.700000000012,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 75,
+      "key": "k",
+      "timestamp": 10941.300000000047,
+      "dwellTime": 94.60000000003492,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 11068.800000000047,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 11165.700000000012,
+      "dwellTime": 96.89999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 66,
+      "key": "b",
+      "timestamp": 11809.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 66,
+      "key": "b",
+      "timestamp": 11934.100000000035,
+      "dwellTime": 124.60000000003492,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 12064,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 12179.5,
+      "dwellTime": 115.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 12463.300000000047,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 12594.300000000047,
+      "dwellTime": 131,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 87,
+      "key": "w",
+      "timestamp": 12647.700000000012,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 87,
+      "key": "w",
+      "timestamp": 12739.900000000023,
+      "dwellTime": 92.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 12802,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 12954.400000000023,
+      "dwellTime": 152.40000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 13168.300000000047,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 13300.400000000023,
+      "dwellTime": 132.09999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 71,
+      "key": "g",
+      "timestamp": 14079.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 71,
+      "key": "g",
+      "timestamp": 14194.300000000047,
+      "dwellTime": 114.80000000004657,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 14986.900000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 15148.700000000012,
+      "dwellTime": 161.79999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 70,
+      "key": "f",
+      "timestamp": 15157.100000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 70,
+      "key": "f",
+      "timestamp": 15248.400000000023,
+      "dwellTime": 91.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 15566.400000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 15687.5,
+      "dwellTime": 121.09999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 88,
+      "key": "x",
+      "timestamp": 16505.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 88,
+      "key": "x",
+      "timestamp": 16631.900000000023,
+      "dwellTime": 126.40000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 16712.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 16814.70000000001,
+      "dwellTime": 102.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 74,
+      "key": "j",
+      "timestamp": 17366.70000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 74,
+      "key": "j",
+      "timestamp": 17458.70000000001,
+      "dwellTime": 92,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 85,
+      "key": "u",
+      "timestamp": 17655.70000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 85,
+      "key": "u",
+      "timestamp": 17747.400000000023,
+      "dwellTime": 91.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 17971.900000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 18064.100000000035,
+      "dwellTime": 92.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 80,
+      "key": "p",
+      "timestamp": 18303.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 80,
+      "key": "p",
+      "timestamp": 18480,
+      "dwellTime": 176.79999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 83,
+      "key": "s",
+      "timestamp": 18798.100000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 83,
+      "key": "s",
+      "timestamp": 18965.5,
+      "dwellTime": 167.39999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 18972.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 19034,
+      "dwellTime": 61.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 19876.800000000047,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 19994.900000000023,
+      "dwellTime": 118.09999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 86,
+      "key": "v",
+      "timestamp": 20082,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 86,
+      "key": "v",
+      "timestamp": 20168.300000000047,
+      "dwellTime": 86.30000000004657,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 20297.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 20439.100000000035,
+      "dwellTime": 141.90000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 20508.900000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 20639,
+      "dwellTime": 130.09999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 20657,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 20749.20000000001,
+      "dwellTime": 92.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 20887,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keydown",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 20987,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 21016.600000000035,
+      "dwellTime": 129.60000000003492,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keyup",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 21125.600000000035,
+      "dwellTime": 138.60000000003492,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 21136.900000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 21280.20000000001,
+      "dwellTime": 143.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 21289.100000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 21415.400000000023,
+      "dwellTime": 126.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 76,
+      "key": "l",
+      "timestamp": 21609.300000000047,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keydown",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 21725.100000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 76,
+      "key": "l",
+      "timestamp": 21777.20000000001,
+      "dwellTime": 167.89999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keyup",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 21861.800000000047,
+      "dwellTime": 136.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 88,
+      "key": "x",
+      "timestamp": 21915.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 88,
+      "key": "x",
+      "timestamp": 21931.70000000001,
+      "dwellTime": 16.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 22699.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keydown",
+      "keyCode": 88,
+      "key": "x",
+      "timestamp": 22859.70000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 22876.70000000001,
+      "dwellTime": 177.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keyup",
+      "keyCode": 88,
+      "key": "x",
+      "timestamp": 22976,
+      "dwellTime": 116.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 23660,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 23830.70000000001,
+      "dwellTime": 170.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 90,
+      "key": "z",
+      "timestamp": 23874.400000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 90,
+      "key": "z",
+      "timestamp": 24009.100000000035,
+      "dwellTime": 134.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 89,
+      "key": "y",
+      "timestamp": 24579,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 89,
+      "key": "y",
+      "timestamp": 24665.300000000047,
+      "dwellTime": 86.30000000004657,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 24779,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 24876.70000000001,
+      "dwellTime": 97.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 68,
+      "key": "d",
+      "timestamp": 24959.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 68,
+      "key": "d",
+      "timestamp": 25115.600000000035,
+      "dwellTime": 156,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 25733,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 25865.800000000047,
+      "dwellTime": 132.80000000004657,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 71,
+      "key": "g",
+      "timestamp": 25999.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 71,
+      "key": "g",
+      "timestamp": 26126.600000000035,
+      "dwellTime": 127.40000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 26170,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 26271.70000000001,
+      "dwellTime": 101.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 80,
+      "key": "p",
+      "timestamp": 26955.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 80,
+      "key": "p",
+      "timestamp": 27116.800000000047,
+      "dwellTime": 161.60000000003492,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 27220.400000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 27343.900000000023,
+      "dwellTime": 123.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 27601.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 27744.100000000035,
+      "dwellTime": 142.90000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 71,
+      "key": "g",
+      "timestamp": 27884.400000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 71,
+      "key": "g",
+      "timestamp": 27987.400000000023,
+      "dwellTime": 103,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 28276.70000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 28433.20000000001,
+      "dwellTime": 156.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 28556.100000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 28660.100000000035,
+      "dwellTime": 104,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 28711.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 28798.20000000001,
+      "dwellTime": 86.59999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 28862,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 28953.20000000001,
+      "dwellTime": 91.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 73,
+      "key": "i",
+      "timestamp": 29066.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 73,
+      "key": "i",
+      "timestamp": 29168.400000000023,
+      "dwellTime": 102.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 29280.800000000047,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 29424.5,
+      "dwellTime": 143.69999999995343,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 71,
+      "key": "g",
+      "timestamp": 29448.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 71,
+      "key": "g",
+      "timestamp": 29575.5,
+      "dwellTime": 126.89999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 29614.300000000047,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 29714.800000000047,
+      "dwellTime": 100.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 73,
+      "key": "i",
+      "timestamp": 29945.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 73,
+      "key": "i",
+      "timestamp": 30007.300000000047,
+      "dwellTime": 62.100000000034925,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 83,
+      "key": "s",
+      "timestamp": 30094.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 83,
+      "key": "s",
+      "timestamp": 30242.100000000035,
+      "dwellTime": 147.90000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 30248.400000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 30335.800000000047,
+      "dwellTime": 87.40000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 30395.400000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keydown",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 30460.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 30500.900000000023,
+      "dwellTime": 105.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keyup",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 30561.900000000023,
+      "dwellTime": 101.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 30615,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 30743.100000000035,
+      "dwellTime": 128.10000000003492,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 30751.400000000023,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 30859.100000000035,
+      "dwellTime": 107.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 31018,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 31124.600000000035,
+      "dwellTime": 106.60000000003492,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 31211,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 31310.20000000001,
+      "dwellTime": 99.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 31417.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 31547.900000000023,
+      "dwellTime": 130.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 31593,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 31714.5,
+      "dwellTime": 121.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 31968,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 32110.900000000023,
+      "dwellTime": 142.90000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 70,
+      "key": "f",
+      "timestamp": 32148,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 70,
+      "key": "f",
+      "timestamp": 32280.20000000001,
+      "dwellTime": 132.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 70,
+      "key": "f",
+      "timestamp": 32405.800000000047,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 70,
+      "key": "f",
+      "timestamp": 32520.400000000023,
+      "dwellTime": 114.59999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 33045.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 33201.100000000035,
+      "dwellTime": 155.90000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 33294.90000000002,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 33380.5,
+      "dwellTime": 85.59999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 33969.70000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 34081.40000000002,
+      "dwellTime": 111.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 34304.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 34437,
+      "dwellTime": 132.79999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 76,
+      "key": "l",
+      "timestamp": 34585.30000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 76,
+      "key": "l",
+      "timestamp": 34675.90000000002,
+      "dwellTime": 90.59999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 76,
+      "key": "l",
+      "timestamp": 34845.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 76,
+      "key": "l",
+      "timestamp": 34936.30000000005,
+      "dwellTime": 90.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 73,
+      "key": "i",
+      "timestamp": 35234.100000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 73,
+      "key": "i",
+      "timestamp": 35365.80000000005,
+      "dwellTime": 131.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 35464.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 35612.5,
+      "dwellTime": 147.69999999995343,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 71,
+      "key": "g",
+      "timestamp": 35650.90000000002,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 71,
+      "key": "g",
+      "timestamp": 35794.100000000035,
+      "dwellTime": 143.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 35800.30000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 35924,
+      "dwellTime": 123.69999999995343,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 36635.70000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 36751.80000000005,
+      "dwellTime": 116.10000000003492,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 36799.90000000002,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 36912,
+      "dwellTime": 112.09999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 36986.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 37240.30000000005,
+      "dwellTime": 253.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 37333.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keydown",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 37437.30000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 37458,
+      "dwellTime": 124.79999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keyup",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 37584.90000000002,
+      "dwellTime": 147.59999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 37602.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 37775.20000000001,
+      "dwellTime": 172.39999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 37809.30000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 37935.600000000035,
+      "dwellTime": 126.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 37998.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 38120.100000000035,
+      "dwellTime": 121.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 38590.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 38715.90000000002,
+      "dwellTime": 125.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 85,
+      "key": "u",
+      "timestamp": 38819.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 85,
+      "key": "u",
+      "timestamp": 38917.600000000035,
+      "dwellTime": 97.79999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 39295.100000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 39411.600000000035,
+      "dwellTime": 116.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 39442.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 39527.70000000001,
+      "dwellTime": 84.89999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 39575.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 39651.90000000002,
+      "dwellTime": 76.09999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 39775.40000000002,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 39886,
+      "dwellTime": 110.59999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 87,
+      "key": "w",
+      "timestamp": 40175.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keydown",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 40290.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 87,
+      "key": "w",
+      "timestamp": 40310.80000000005,
+      "dwellTime": 135.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keyup",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 40416.600000000035,
+      "dwellTime": 126,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 40442.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 40562.90000000002,
+      "dwellTime": 120.40000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 40656.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 40809.20000000001,
+      "dwellTime": 152.39999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 40830.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 40972.70000000001,
+      "dwellTime": 142.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 41081,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 41217.40000000002,
+      "dwellTime": 136.40000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 42321.100000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 42457.5,
+      "dwellTime": 136.39999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 43654.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 43772.70000000001,
+      "dwellTime": 118.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 43904.100000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 44046,
+      "dwellTime": 141.89999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 44069.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 44196.70000000001,
+      "dwellTime": 127.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 44269.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 44371,
+      "dwellTime": 101.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 45248.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 45380.80000000005,
+      "dwellTime": 132.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 45704.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 45812.5,
+      "dwellTime": 108.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 45868.40000000002,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 45980.100000000035,
+      "dwellTime": 111.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 46047.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 46179.80000000005,
+      "dwellTime": 132,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 87,
+      "key": "w",
+      "timestamp": 47618.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 87,
+      "key": "w",
+      "timestamp": 47727.80000000005,
+      "dwellTime": 109,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 47982.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 48113.80000000005,
+      "dwellTime": 131.30000000004657,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 48612.90000000002,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 48769.80000000005,
+      "dwellTime": 156.90000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 81,
+      "key": "q",
+      "timestamp": 48796,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 81,
+      "key": "q",
+      "timestamp": 48855.70000000001,
+      "dwellTime": 59.70000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 49074.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 49194.100000000035,
+      "dwellTime": 119.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 49511.30000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 49678.20000000001,
+      "dwellTime": 166.89999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 49777.90000000002,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 49889.40000000002,
+      "dwellTime": 111.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 50287,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 65,
+      "key": "a",
+      "timestamp": 50433.30000000005,
+      "dwellTime": 146.30000000004657,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 50516.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 78,
+      "key": "n",
+      "timestamp": 50693.600000000035,
+      "dwellTime": 177,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 50757.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 50878.40000000002,
+      "dwellTime": 121.20000000001164,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 83,
+      "key": "s",
+      "timestamp": 51218.30000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 83,
+      "key": "s",
+      "timestamp": 51368.70000000001,
+      "dwellTime": 150.39999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 51390.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 51488.90000000002,
+      "dwellTime": 98.40000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 51595.90000000002,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keydown",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 51722,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 51744,
+      "dwellTime": 148.09999999997672,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 51822.40000000002,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 72,
+      "key": "h",
+      "timestamp": 51842,
+      "dwellTime": 120,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keyup",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 51968.90000000002,
+      "dwellTime": 146.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 51976.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 52078.30000000005,
+      "dwellTime": 101.80000000004657,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 67,
+      "key": "c",
+      "timestamp": 52653.30000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 67,
+      "key": "c",
+      "timestamp": 52773.20000000001,
+      "dwellTime": 119.89999999996508,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 53311.40000000002,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 53393.30000000005,
+      "dwellTime": 81.90000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 53581.30000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 77,
+      "key": "m",
+      "timestamp": 53683.30000000005,
+      "dwellTime": 102,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 219,
+      "key": "[",
+      "timestamp": 53855.40000000002,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 219,
+      "key": "[",
+      "timestamp": 53958.70000000001,
+      "dwellTime": 103.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 54487.100000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 8,
+      "key": "Backspace",
+      "timestamp": 54639.600000000035,
+      "dwellTime": 152.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 80,
+      "key": "p",
+      "timestamp": 54912.100000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 80,
+      "key": "p",
+      "timestamp": 55078.40000000002,
+      "dwellTime": 166.29999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 85,
+      "key": "u",
+      "timestamp": 55288,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 85,
+      "key": "u",
+      "timestamp": 55420.600000000035,
+      "dwellTime": 132.60000000003492,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 55616.80000000005,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 55713.600000000035,
+      "dwellTime": 96.79999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 56057.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 69,
+      "key": "e",
+      "timestamp": 56128.600000000035,
+      "dwellTime": 71.40000000002328,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 56200.70000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 82,
+      "key": "r",
+      "timestamp": 56359.80000000005,
+      "dwellTime": 159.10000000003492,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 56397.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 56505,
+      "dwellTime": 107.79999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 56647.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 84,
+      "key": "t",
+      "timestamp": 56779,
+      "dwellTime": 131.79999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 56812.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 56990,
+      "dwellTime": 177.79999999998836,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 57083.20000000001,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 32,
+      "key": " ",
+      "timestamp": 57183.80000000005,
+      "dwellTime": 100.60000000003492,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 68,
+      "key": "d",
+      "timestamp": 57392.600000000035,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 68,
+      "key": "d",
+      "timestamp": 57535.100000000035,
+      "dwellTime": 142.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "keydown",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 57974.5,
+      "sessionId": "session_1770884682591_qfh151all",
+      "matched": true
+    },
+    {
+      "type": "keyup",
+      "keyCode": 79,
+      "key": "o",
+      "timestamp": 58099,
+      "dwellTime": 124.5,
+      "sessionId": "session_1770884682591_qfh151all"
+    }
+  ],
+  "mouse_data": [
+    {
+      "type": "mousemove",
+      "x": 345,
+      "y": 283,
+      "timestamp": 3031.4000000000233,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "click",
+      "x": 345,
+      "y": 283,
+      "button": 0,
+      "timestamp": 3033.100000000035,
+      "sessionId": "session_1770884682591_qfh151all"
+    },
+    {
+      "type": "mousemove",
+      "x": 409,
+      "y": 533,
+      "timestamp": 59925.30000000005,
+      "sessionId": "session_1770884682591_qfh151all"
+    }
+  ]
+}

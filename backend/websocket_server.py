@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from ml.behavioral_analyzer import BehavioralAnalyzer
+from database.user_db import UserDatabase
 from datetime import datetime
 
 # A simple, hardcoded token for authentication.
@@ -13,6 +14,7 @@ AUTH_TOKEN = os.environ.get("AUTH_TOKEN", "your-secret-auth-token")
 class BehavioralWebSocketServer:
     def __init__(self):
         self.analyzer = BehavioralAnalyzer()
+        self.db = UserDatabase()
         # Ensure models directory exists
         if not os.path.exists('models'):
             os.makedirs('models')
@@ -120,6 +122,17 @@ class BehavioralWebSocketServer:
             'last_activity': datetime.now(),
             'risk_score': risk_score
         }
+        
+        # Save behavioral profile to database if user exists
+        user_info = self.db.get_user_by_username(user_id)
+        if user_info.get('success'):
+            self.db.save_behavioral_profile(
+                user_info['user']['id'],
+                session_id,
+                keystroke_data,
+                mouse_data,
+                risk_score
+            )
         
         # Send response
         response = {

@@ -10,56 +10,95 @@ class BehavioralFeatureExtractor:
         self.mouse_features = {}
     
     def extract_keystroke_features(self, keystroke_data):
-        """Extract features from keystroke dynamics"""
+        """Extract advanced features from keystroke dynamics as requested"""
         features = {}
         
         # Convert to DataFrame for easier processing
         df = pd.DataFrame(keystroke_data)
         
-        # Filter for keyup events with dwell time
-        keyup_events = df[df['type'] == 'keyup'].copy()
-        
-        if len(keyup_events) < 5:
+        if df.empty or 'type' not in df.columns:
             return self.get_default_keystroke_features()
+            
+        # 1. Timing Features
+        # Dwell Time = release_time - press_time
+        # (Assuming 'dwellTime' is already calculated in the frontend/backend collector, 
+        # but we can re-verify or calculate if raw events are provided)
+        keyup_events = df[df['type'] == 'keyup'].copy()
+        keydown_events = df[df['type'] == 'keydown'].copy()
         
-        # Dwell time features
-        dwell_times = keyup_events['dwellTime'].values
-        features['dwell_mean'] = np.mean(dwell_times)
-        features['dwell_std'] = np.std(dwell_times)
-        features['dwell_median'] = np.median(dwell_times)
-        features['dwell_skew'] = stats.skew(dwell_times)
-        features['dwell_kurtosis'] = stats.kurtosis(dwell_times)
+        if len(keyup_events) < 5 or len(keydown_events) < 5:
+            return self.get_default_keystroke_features()
+
+        # Dwell times
+        dwell_times = keyup_events['dwellTime'].values if 'dwellTime' in keyup_events else []
+        if len(dwell_times) == 0:
+            # Calculate if not present: find matching keydown for each keyup
+            # Simple approximation if events are ordered
+            dwell_times = []
+            for i in range(min(len(keyup_events), len(keydown_events))):
+                dwell_times.append(keyup_events.iloc[i]['timestamp'] - keydown_events.iloc[i]['timestamp'])
         
-        # Flight time features (time between keystrokes)
-        timestamps = keyup_events['timestamp'].values
-        flight_times = np.diff(timestamps)
+        # Flight Time = next_key_press_time - current_key_release_time
+        # Inter-Key Latency = next_key_press_time - current_key_press_time
+        flight_times = []
+        ikl_latencies = []
+        for i in range(len(keydown_events) - 1):
+            current_release = keyup_events.iloc[i]['timestamp']
+            current_press = keydown_events.iloc[i]['timestamp']
+            next_press = keydown_events.iloc[i+1]['timestamp']
+            
+            flight_times.append(next_press - current_release)
+            ikl_latencies.append(next_press - current_press)
+
+        # 3. Statistical Features
+        features['dwell_mean'] = np.mean(dwell_times) if len(dwell_times) > 0 else 0
+        features['dwell_std'] = np.std(dwell_times) if len(dwell_times) > 0 else 0
+        features['flight_mean'] = np.mean(flight_times) if len(flight_times) > 0 else 0
+        features['flight_std'] = np.std(flight_times) if len(flight_times) > 0 else 0
+        features['ikl_mean'] = np.mean(ikl_latencies) if len(ikl_latencies) > 0 else 0
+
+        # 2. Typing Behavior Features
+        # Average typing speed (keys per second)
+        total_time = (df['timestamp'].max() - df['timestamp'].min()) / 1000.0 # seconds
+        features['typing_speed'] = len(keydown_events) / total_time if total_time > 0 else 0
         
-        features['flight_mean'] = np.mean(flight_times)
-        features['flight_std'] = np.std(flight_times)
-        features['flight_median'] = np.median(flight_times)
+        # Typing rhythm consistency (std deviation of flight times)
+        features['rhythm_consistency'] = features['flight_std']
         
-        # Typing rhythm features
-        features['typing_speed'] = len(keyup_events) / (timestamps[-1] - timestamps[0]) * 1000
+        # Backspace usage frequency
+        backspaces = len(df[df['key'] == 'Backspace'])
+        features['backspace_frequency'] = backspaces / len(keydown_events) if len(keydown_events) > 0 else 0
         
-        # Key frequency analysis
-        key_counts = keyup_events['key'].value_counts()
-        features['unique_keys'] = len(key_counts)
-        features['most_frequent_key_ratio'] = key_counts.iloc[0] / len(keyup_events) if len(key_counts) > 0 else 0
-        
-        # Digraph analysis (two-key combinations)
-        digraphs = []
-        for i in range(len(keyup_events) - 1):
-            digraph = keyup_events.iloc[i]['key'] + keyup_events.iloc[i+1]['key']
-            digraphs.append(digraph)
-        
-        if digraphs:
-            unique_digraphs = len(set(digraphs))
-            features['digraph_diversity'] = unique_digraphs / len(digraphs)
-        else:
-            features['digraph_diversity'] = 0
+        # Error rate (approximated by backspaces + deletions)
+        corrections = len(df[df['key'].isin(['Backspace', 'Delete'])])
+        features['error_rate'] = corrections / len(keydown_events) if len(keydown_events) > 0 else 0
+
+        # Additional metrics from previous implementation
+        features['unique_keys'] = df['key'].nunique()
         
         return features
     
+    def get_feature_vector(self, keystroke_data, mouse_data=None):
+        """Returns a numerical feature vector ready for ML models"""
+        k_features = self.extract_keystroke_features(keystroke_data)
+        
+        # Basic mouse features if available, else defaults
+        if mouse_data:
+            m_features = self.extract_mouse_features(mouse_data)
+        else:
+            m_features = self.get_default_mouse_features()
+            
+        combined = {**k_features, **m_features}
+        
+        # Return sorted list of values for consistent vector shape
+        keys = sorted(combined.keys())
+        vector = [combined[k] for k in keys]
+        
+        # Normalize (Simple Min-Max or direct if values are already reasonable)
+        # Note: In a production setting, we'd use a fitted StandardScaler or similar.
+        # For this demonstration, we return the raw numerical vector as it's "ready" for scikit-learn.
+        return np.array(vector), keys
+
     def extract_mouse_features(self, mouse_data):
         """Extract features from mouse dynamics"""
         features = {}
@@ -101,7 +140,7 @@ class BehavioralFeatureExtractor:
             features.update(self.get_default_mouse_features())
         
         # Click features
-        click_events = df[df['type'] == 'click'].copy()
+        click_events = df[df['type'].isin(['click', 'mousedown'])].copy()
         
         if len(click_events) > 1:
             click_intervals = np.diff(click_events['timestamp'])
@@ -134,7 +173,7 @@ class BehavioralFeatureExtractor:
             actual_distance += np.sqrt(dx**2 + dy**2)
         
         if actual_distance == 0:
-            return 0
+            return 1 # If no movement, efficiency is 1 (stationary)
         
         return straight_distance / actual_distance
     
@@ -152,7 +191,7 @@ class BehavioralFeatureExtractor:
             dy = move_events.iloc[i]['y'] - move_events.iloc[i-1]['y']
             
             # Check if direction changed significantly
-            if abs(dx - prev_dx) > 5 or abs(dy - prev_dy) > 5:
+            if (dx * prev_dx < 0) or (dy * prev_dy < 0): # Direction sign change
                 direction_changes += 1
             
             prev_dx, prev_dy = dx, dy
@@ -162,11 +201,9 @@ class BehavioralFeatureExtractor:
     def get_default_keystroke_features(self):
         """Return default keystroke features when insufficient data"""
         return {
-            'dwell_mean': 0, 'dwell_std': 0, 'dwell_median': 0,
-            'dwell_skew': 0, 'dwell_kurtosis': 0,
-            'flight_mean': 0, 'flight_std': 0, 'flight_median': 0,
-            'typing_speed': 0, 'unique_keys': 0, 'most_frequent_key_ratio': 0,
-            'digraph_diversity': 0
+            'dwell_mean': 0, 'dwell_std': 0, 'flight_mean': 0, 'flight_std': 0,
+            'ikl_mean': 0, 'typing_speed': 0, 'rhythm_consistency': 0,
+            'backspace_frequency': 0, 'error_rate': 0, 'unique_keys': 0
         }
     
     def get_default_mouse_features(self):

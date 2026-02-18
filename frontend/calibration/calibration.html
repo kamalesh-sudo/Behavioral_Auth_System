@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Behavioral Calibration</title>
+    <link rel="stylesheet" href="../login/login.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .calibration-text {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            color: #e2e8f0;
+            user-select: none;
+        }
+
+        .typing-area {
+            width: 100%;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            color: white;
+            font-family: inherit;
+            font-size: 1rem;
+            resize: none;
+            margin-bottom: 20px;
+        }
+
+        .typing-area:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .progress-container {
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="login-card">
+            <div class="header">
+                <h1>Calibration</h1>
+                <p class="subtitle">Please type the text below to calibrate your profile</p>
+            </div>
+
+            <div class="calibration-container">
+                <div class="calibration-text" id="targetText">
+                    The quick brown fox jumps over the lazy dog. Programming is the art of telling another human what
+                    one wants the computer to do.
+                </div>
+
+                <textarea class="typing-area" id="typingInput" placeholder="Start typing here..."></textarea>
+
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div style="text-align: right; font-size: 0.8rem; color: #a0aec0; margin-top: 5px;">
+                        <span id="charCount">0</span> / <span id="totalChars">0</span>
+                    </div>
+                </div>
+
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Waiting to start...</span>
+                </div>
+
+                <button id="completeButton" class="login-button" disabled>
+                    <span class="button-text">Complete Calibration</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="calibration.js"></script>
+</body>
+
+</html>

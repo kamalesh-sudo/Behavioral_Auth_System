@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Behavioral Authentication - Login</title>
+    <link rel="stylesheet" href="login.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <div class="login-card">
+            <div class="header">
+                <div class="logo">
+                    <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="20" cy="20" r="18" stroke="url(#gradient)" stroke-width="2" />
+                        <path d="M20 10V20L26 26" stroke="url(#gradient)" stroke-width="2" stroke-linecap="round" />
+                        <defs>
+                            <linearGradient id="gradient" x1="0" y1="0" x2="40" y2="40">
+                                <stop offset="0%" stop-color="#667eea" />
+                                <stop offset="100%" stop-color="#764ba2" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <h1>Behavioral Authentication</h1>
+                <p class="subtitle">Secure login with behavioral biometrics</p>
+            </div>
+
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Analyzing behavior...</span>
+            </div>
+
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path
+                                d="M10 10C12.7614 10 15 7.76142 15 5C15 2.23858 12.7614 0 10 0C7.23858 0 5 2.23858 5 5C5 7.76142 7.23858 10 10 10Z"
+                                fill="currentColor" />
+                            <path d="M10 12C4.477 12 0 14.477 0 17.5V20H20V17.5C20 14.477 15.523 12 10 12Z"
+                                fill="currentColor" />
+                        </svg>
+                        <input type="text" id="username" name="username" placeholder="Enter your username" required
+                            autocomplete="username">
+                    </div>
+                </div>
+
+
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrapper">
+                        <svg class="input-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path
+                                d="M15 8H14V5C14 2.24 11.76 0 9 0C6.24 0 4 2.24 4 5V8H3C1.9 8 1 8.9 1 10V18C1 19.1 1.9 20 3 20H15C16.1 20 17 19.1 17 18V10C17 8.9 16.1 8 15 8ZM9 2C10.66 2 12 3.34 12 5V8H6V5C6 3.34 7.34 2 9 2Z"
+                                fill="currentColor" />
+                        </svg>
+                        <input type="password" id="password" name="password" placeholder="Enter your password" required
+                            autocomplete="current-password">
+                        <button type="button" class="toggle-password" id="togglePassword">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                <path
+                                    d="M10 4C4.5 4 1 10 1 10s3.5 6 9 6 9-6 9-6-3.5-6-9-6zm0 10c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4z"
+                                    fill="currentColor" />
+                                <circle cx="10" cy="10" r="2" fill="currentColor" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="risk-score-container">
+                    <div class="risk-label">
+                        <span>Behavioral Risk Score</span>
+                        <span id="riskValue">--</span>
+                    </div>
+                    <div class="risk-bar">
+                        <div class="risk-fill" id="riskFill"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="login-button" id="loginButton">
+                    <span class="button-text">Start Session</span>
+                    <svg class="button-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                        <path d="M10 0L8.59 1.41L15.17 8H0V10H15.17L8.59 16.59L10 18L20 10L10 0Z" fill="currentColor" />
+                    </svg>
+                </button>
+            </form>
+
+
+
+            <div class="alert" id="alertBox" style="display: none;">
+                <svg class="alert-icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
+                    <path
+                        d="M10 0C4.48 0 0 4.48 0 10C0 15.52 4.48 20 10 20C15.52 20 20 15.52 20 10C20 4.48 15.52 0 10 0ZM11 15H9V13H11V15ZM11 11H9V5H11V11Z"
+                        fill="currentColor" />
+                </svg>
+                <span id="alertMessage"></span>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <h2>🔒 Enhanced Security</h2>
+            <p>This system uses behavioral biometrics to verify your identity based on your unique typing and mouse
+                patterns.</p>
+
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">⌨️</div>
+                    <div class="feature-content">
+                        <h3>Keystroke Dynamics</h3>
+                        <p>Analyzes your typing rhythm and patterns</p>
+                    </div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🖱️</div>
+                    <div class="feature-content">
+                        <h3>Mouse Behavior</h3>
+                        <p>Tracks movement patterns and click behavior</p>
+                    </div>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🤖</div>
+                    <div class="feature-content">
+                        <h3>AI-Powered Analysis</h3>
+                        <p>Real-time machine learning detection</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="login.js"></script>
+</body>
+
+</html>
