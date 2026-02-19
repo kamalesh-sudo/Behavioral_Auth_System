@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     max_behavior_history_limit: int = 100
     jwt_secret_key: str = ""
     jwt_access_token_expire_minutes: int = 120
+    initial_admin_username: str = "admin"
+    alert_webhook_url: str = ""
 
 
 @lru_cache

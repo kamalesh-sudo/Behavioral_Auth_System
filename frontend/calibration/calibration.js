@@ -36,9 +36,23 @@ class CalibrationHandler {
         return localStorage.getItem('ws_auth_token') || localStorage.getItem('auth_token');
     }
 
+    getWebSocketUrl() {
+        if (window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.wsUrl) {
+            return window.RUNTIME_CONFIG.wsUrl;
+        }
+
+        const protocol = (window.location && window.location.protocol === 'https:') ? 'wss:' : 'ws:';
+        let host = (window.location && window.location.hostname) ? window.location.hostname : 'localhost';
+        if (host === '0.0.0.0') {
+            host = 'localhost';
+        }
+
+        const port = (window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.wsPort) || 8765;
+        return `${protocol}//${host}:${port}`;
+    }
+
     connectWebSocket() {
-        const wsHost = 'localhost';
-        const wsPort = 8765;
+        const wsUrl = this.getWebSocketUrl();
         const wsToken = this.getWebSocketToken();
 
         if (!wsToken) {
@@ -48,7 +62,7 @@ class CalibrationHandler {
         }
 
         try {
-            this.socket = new WebSocket(`ws://${wsHost}:${wsPort}`);
+            this.socket = new WebSocket(wsUrl);
 
             this.socket.onopen = () => {
                 console.log('WebSocket connected');
@@ -66,7 +80,7 @@ class CalibrationHandler {
 
             this.socket.onerror = (error) => {
                 console.error('WebSocket error:', error);
-                document.getElementById('statusText').textContent = 'Connection error';
+                document.getElementById('statusText').textContent = `WebSocket error (${wsUrl})`;
                 document.getElementById('statusDot').style.background = 'var(--danger-color)';
             };
 

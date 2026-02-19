@@ -24,9 +24,6 @@ class BehavioralWebSocketServer:
         self.settings = settings
         self.analyzer = BehavioralAnalyzer()
         self.db = AuthDatabase(settings.db_path)
-        # Ensure models directory exists
-        if not os.path.exists('models'):
-            os.makedirs('models')
         self.analyzer.load_models()
         self.connected_clients = set()
         self.user_sessions = {}
@@ -276,7 +273,7 @@ class BehavioralWebSocketServer:
 
 async def main():
     server = BehavioralWebSocketServer()
-    host = os.environ.get("WEBSOCKET_HOST", "localhost")
+    host = os.environ.get("WEBSOCKET_HOST", "0.0.0.0")
     port = int(os.environ.get("WEBSOCKET_PORT", 8765))
 
     async with websockets.serve(server.register_client, host, port):

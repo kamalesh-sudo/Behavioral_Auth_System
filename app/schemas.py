@@ -42,6 +42,7 @@ class UploadResult(BaseModel):
 class UserInfo(BaseModel):
     id: int
     username: str
+    role: str = "user"
     created_at: str | None = None
     last_login: str | None = None
     is_active: int
@@ -61,3 +62,7 @@ class BehavioralHistoryItem(BaseModel):
 class BehavioralHistoryResult(BaseModel):
     success: bool
     history: list[BehavioralHistoryItem]
+
+
+class RoleUpdatePayload(BaseModel):
+    role: str = Field(pattern="^(user|analyst|admin)$")

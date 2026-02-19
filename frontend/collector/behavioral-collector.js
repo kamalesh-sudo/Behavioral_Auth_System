@@ -86,6 +86,10 @@ class BehavioralDataCollector {
 
     // Send data to backend every 2 seconds
     sendDataToBackend() {
+        if (!window.socket) {
+            console.warn("Collector: window.socket not found. Data not sent.");
+            return;
+        }
         console.log('Collector: Attempting to send data. WebSocket state:', window.socket.readyState);
         const payload = {
             type: 'behavioral_data',
@@ -123,5 +127,8 @@ class BehavioralDataCollector {
     }
 }
 
-// Initialize collector
-const collector = new BehavioralDataCollector(userId);
+// Initialize collector only when userId is available globally.
+if (typeof userId !== 'undefined' && userId) {
+    const collector = new BehavioralDataCollector(userId);
+    collector.startSendingData();
+}

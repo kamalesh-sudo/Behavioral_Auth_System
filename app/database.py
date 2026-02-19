@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -13,7 +14,7 @@ class AuthDatabase:
         self._init_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        return sqlite3.connect(self.db_path)
+        return sqlite3.connect(self.db_path, timeout=10)
 
     def _init_schema(self) -> None:
         conn = self._connect()
@@ -26,6 +27,7 @@ class AuthDatabase:
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 salt TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'user',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_login TIMESTAMP,
                 is_active BOOLEAN DEFAULT 1
@@ -73,13 +75,23 @@ class AuthDatabase:
         )
 
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON behavioral_profiles(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_username ON login_attempts(username)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_timestamp ON login_attempts(timestamp)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_security_events_username ON security_events(username)")
 
         conn.commit()
+        self._ensure_schema_migrations(conn)
         conn.close()
+
+    def _ensure_schema_migrations(self, conn: sqlite3.Connection) -> None:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(users)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if "role" not in columns:
+            cursor.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
+            conn.commit()
 
     @staticmethod
     def _hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
@@ -87,19 +99,19 @@ class AuthDatabase:
         digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000)
         return digest.hex(), salt
 
-    def create_user(self, username: str, password: str) -> dict:
+    def create_user(self, username: str, password: str, role: str = "user") -> dict:
         try:
             password_hash, salt = self._hash_password(password)
             conn = self._connect()
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO users (username, password_hash, salt) VALUES (?, ?, ?)",
-                (username, password_hash, salt),
+                "INSERT INTO users (username, password_hash, salt, role) VALUES (?, ?, ?, ?)",
+                (username, password_hash, salt, role),
             )
             user_id = cursor.lastrowid
             conn.commit()
             conn.close()
-            return {"success": True, "user_id": user_id, "username": username}
+            return {"success": True, "user_id": user_id, "username": username, "role": role}
         except sqlite3.IntegrityError:
             return {"success": False, "error": "Username already exists"}
         except Exception as exc:  # pylint: disable=broad-except
@@ -110,7 +122,7 @@ class AuthDatabase:
             conn = self._connect()
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, username, created_at, last_login, is_active FROM users WHERE username = ?",
+                "SELECT id, username, role, created_at, last_login, is_active FROM users WHERE username = ?",
                 (username,),
             )
             row = cursor.fetchone()
@@ -122,9 +134,10 @@ class AuthDatabase:
                 "user": {
                     "id": row[0],
                     "username": row[1],
-                    "created_at": row[2],
-                    "last_login": row[3],
-                    "is_active": row[4],
+                    "role": row[2],
+                    "created_at": row[3],
+                    "last_login": row[4],
+                    "is_active": row[5],
                 },
             }
         except Exception as exc:  # pylint: disable=broad-except
@@ -135,7 +148,7 @@ class AuthDatabase:
             conn = self._connect()
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, username, created_at, last_login, is_active FROM users WHERE id = ?",
+                "SELECT id, username, role, created_at, last_login, is_active FROM users WHERE id = ?",
                 (user_id,),
             )
             row = cursor.fetchone()
@@ -147,9 +160,10 @@ class AuthDatabase:
                 "user": {
                     "id": row[0],
                     "username": row[1],
-                    "created_at": row[2],
-                    "last_login": row[3],
-                    "is_active": row[4],
+                    "role": row[2],
+                    "created_at": row[3],
+                    "last_login": row[4],
+                    "is_active": row[5],
                 },
             }
         except Exception as exc:  # pylint: disable=broad-except
@@ -160,7 +174,7 @@ class AuthDatabase:
             conn = self._connect()
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT id, password_hash, salt, is_active FROM users WHERE username = ?",
+                "SELECT id, password_hash, salt, role, is_active FROM users WHERE username = ?",
                 (username,),
             )
             row = cursor.fetchone()
@@ -169,16 +183,16 @@ class AuthDatabase:
             if not row:
                 return {"success": False, "error": "Invalid username or password"}
 
-            user_id, stored_hash, salt, is_active = row
+            user_id, stored_hash, salt, role, is_active = row
             if not is_active:
                 return {"success": False, "error": "Account is disabled"}
 
             calculated_hash, _ = self._hash_password(password, salt)
-            if calculated_hash != stored_hash:
+            if not hmac.compare_digest(calculated_hash, stored_hash):
                 return {"success": False, "error": "Invalid username or password"}
 
             self._update_last_login(user_id)
-            return {"success": True, "user_id": user_id, "username": username}
+            return {"success": True, "user_id": user_id, "username": username, "role": role}
         except Exception as exc:  # pylint: disable=broad-except
             return {"success": False, "error": str(exc)}
 
@@ -192,6 +206,7 @@ class AuthDatabase:
                 "success": True,
                 "user_id": user["user"]["id"],
                 "username": username,
+                "role": user["user"]["role"],
                 "is_new": False,
             }
 
@@ -249,6 +264,88 @@ class AuthDatabase:
             conn.commit()
             conn.close()
             return {"success": True, "user_updated": user_updated}
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
+    def set_user_role(self, username: str, role: str) -> dict:
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET role = ? WHERE username = ?", (role, username))
+            updated = cursor.rowcount > 0
+            conn.commit()
+            conn.close()
+            if not updated:
+                return {"success": False, "error": "User not found"}
+            return {"success": True, "username": username, "role": role}
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
+    def log_security_event(
+        self,
+        username: str,
+        event_type: str,
+        reason: str,
+        session_id: str | None = None,
+        risk_score: float | None = None,
+    ) -> dict:
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO security_events (username, session_id, risk_score, event_type, reason)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (username, session_id, risk_score, event_type, reason),
+            )
+            conn.commit()
+            conn.close()
+            return {"success": True}
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
+    def get_security_events(self, limit: int = 100, username: str | None = None) -> dict:
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            if username:
+                cursor.execute(
+                    """
+                    SELECT username, session_id, risk_score, event_type, reason, timestamp
+                    FROM security_events
+                    WHERE username = ?
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                    """,
+                    (username, limit),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT username, session_id, risk_score, event_type, reason, timestamp
+                    FROM security_events
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                    """,
+                    (limit,),
+                )
+            rows = cursor.fetchall()
+            conn.close()
+            return {
+                "success": True,
+                "events": [
+                    {
+                        "username": row[0],
+                        "session_id": row[1],
+                        "risk_score": row[2],
+                        "event_type": row[3],
+                        "reason": row[4],
+                        "timestamp": row[5],
+                    }
+                    for row in rows
+                ],
+            }
         except Exception as exc:  # pylint: disable=broad-except
             return {"success": False, "error": str(exc)}
 

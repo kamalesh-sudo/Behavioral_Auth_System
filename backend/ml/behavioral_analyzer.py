@@ -2,9 +2,21 @@ import numpy as np
 from sklearn.ensemble import IsolationForest, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 import joblib
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout
+from pathlib import Path
+
+try:
+    import tensorflow as tf
+    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import LSTM, Dense, Dropout
+    TENSORFLOW_AVAILABLE = True
+except Exception:  # pylint: disable=broad-except
+    tf = None
+    Sequential = None
+    LSTM = None
+    Dense = None
+    Dropout = None
+    TENSORFLOW_AVAILABLE = False
+
 from ml.feature_extractor import BehavioralFeatureExtractor
 
 class BehavioralAnalyzer:
@@ -16,6 +28,8 @@ class BehavioralAnalyzer:
         self.lstm_model = None
         self.user_profiles = {}
         self.is_trained = False
+        self.model_dir = Path(__file__).resolve().parents[1] / "models"
+        self.model_dir.mkdir(parents=True, exist_ok=True)
     
     def create_user_profile(self, user_id, behavioral_data):
         """Create initial user profile from behavioral data"""
@@ -96,6 +110,10 @@ class BehavioralAnalyzer:
     
     def train_lstm_model(self, training_data):
         """Train LSTM model for temporal behavioral analysis"""
+        if not TENSORFLOW_AVAILABLE:
+            print("TensorFlow not available; skipping LSTM training.")
+            return
+
         sequences = []
         labels = []
         
@@ -140,7 +158,7 @@ class BehavioralAnalyzer:
         y_numeric = np.array([unique_labels.index(label) for label in y])
         
         # Train model
-        self.lstm_model.fit(X, y_numeric, epochs=50, batch_size=32, verbose=1)
+        self.lstm_model.fit(X, y_numeric, epochs=20, batch_size=32, verbose=1)
     
     def create_time_windows(self, behavioral_data, window_size=5000):
         """Create time windows from behavioral data"""
@@ -245,27 +263,30 @@ class BehavioralAnalyzer:
     
     def save_models(self):
         """Save trained models to disk"""
-        joblib.dump(self.scaler, 'models/scaler.pkl')
-        joblib.dump(self.classifier, 'models/classifier.pkl')
-        joblib.dump(self.anomaly_detector, 'models/anomaly_detector.pkl')
+        joblib.dump(self.scaler, self.model_dir / "scaler.pkl")
+        joblib.dump(self.classifier, self.model_dir / "classifier.pkl")
+        joblib.dump(self.anomaly_detector, self.model_dir / "anomaly_detector.pkl")
         
-        if self.lstm_model:
-            self.lstm_model.save('models/lstm_model.h5')
+        if self.lstm_model and TENSORFLOW_AVAILABLE:
+            self.lstm_model.save(self.model_dir / "lstm_model.h5")
     
     def load_models(self):
         """Load trained models from disk"""
         try:
-            self.scaler = joblib.load('models/scaler.pkl')
-            self.classifier = joblib.load('models/classifier.pkl')
-            self.anomaly_detector = joblib.load('models/anomaly_detector.pkl')
+            self.scaler = joblib.load(self.model_dir / "scaler.pkl")
+            self.classifier = joblib.load(self.model_dir / "classifier.pkl")
+            self.anomaly_detector = joblib.load(self.model_dir / "anomaly_detector.pkl")
             
-            try:
-                self.lstm_model = tf.keras.models.load_model('models/lstm_model.h5')
-            except:
-                print("LSTM model not found")
+            if TENSORFLOW_AVAILABLE:
+                try:
+                    self.lstm_model = tf.keras.models.load_model(self.model_dir / "lstm_model.h5")
+                except Exception:  # pylint: disable=broad-except
+                    print("LSTM model not found")
+            else:
+                self.lstm_model = None
             
             self.is_trained = True
             return True
-        except:
+        except Exception:  # pylint: disable=broad-except
             print("Models not found, please train first")
             return False

@@ -7,5 +7,6 @@ numpy
 pandas
 scipy
 scikit-learn
-tensorflow
+# TensorFlow wheels are unavailable on newer Python versions (e.g. 3.14).
+tensorflow; python_version < "3.13"
 joblib

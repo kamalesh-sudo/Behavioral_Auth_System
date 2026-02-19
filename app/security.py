@@ -27,6 +27,9 @@ def _b64url_decode(data: str) -> bytes:
 def get_jwt_secret(settings: Settings) -> str:
     candidate = (settings.jwt_secret_key or "").strip() or (os.environ.get("AUTH_TOKEN") or "").strip()
     if candidate.lower() in _UNSAFE_SECRETS or len(candidate) < 16:
+        if (settings.app_env or "").lower() == "development":
+            # Keep local development usable when .env still contains placeholders.
+            return "dev-only-insecure-jwt-secret-change-in-production"
         raise RuntimeError("JWT secret is not configured. Set JWT_SECRET_KEY (or a strong AUTH_TOKEN).")
     return candidate
 

@@ -25,6 +25,41 @@ class LoginBehavioralCollector {
         return localStorage.getItem('ws_auth_token') || localStorage.getItem('auth_token');
     }
 
+    getApiBaseUrl() {
+        if (window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.apiBaseUrl) {
+            const configured = window.RUNTIME_CONFIG.apiBaseUrl.replace(/\/$/, '');
+            try {
+                const parsed = new URL(configured);
+                if (parsed.hostname === '0.0.0.0') {
+                    parsed.hostname = (window.location && window.location.hostname && window.location.hostname !== '0.0.0.0')
+                        ? window.location.hostname
+                        : 'localhost';
+                    return parsed.toString().replace(/\/$/, '');
+                }
+            } catch (error) {
+                // Keep configured value if it is not a valid absolute URL.
+            }
+            return configured;
+        }
+        if (window.location && window.location.origin && window.location.origin !== 'null') {
+            return window.location.origin;
+        }
+        return 'http://localhost:5000';
+    }
+
+    getWebSocketUrl() {
+        if (window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.wsUrl) {
+            return window.RUNTIME_CONFIG.wsUrl;
+        }
+        const protocol = (window.location && window.location.protocol === 'https:') ? 'wss:' : 'ws:';
+        let host = (window.location && window.location.hostname) ? window.location.hostname : 'localhost';
+        if (host === '0.0.0.0') {
+            host = 'localhost';
+        }
+        const port = (window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.wsPort) || 8765;
+        return `${protocol}//${host}:${port}`;
+    }
+
     generateSessionId() {
         return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
@@ -50,8 +85,7 @@ class LoginBehavioralCollector {
     }
 
     connectWebSocket() {
-        const wsHost = 'localhost';
-        const wsPort = 8765;
+        const wsUrl = this.getWebSocketUrl();
         const wsToken = this.getWebSocketToken();
 
         if (!wsToken) {
@@ -61,7 +95,7 @@ class LoginBehavioralCollector {
         }
 
         try {
-            this.socket = new WebSocket(`ws://${wsHost}:${wsPort}`);
+            this.socket = new WebSocket(wsUrl);
 
             this.socket.onopen = () => {
                 console.log('WebSocket connected');
@@ -80,6 +114,7 @@ class LoginBehavioralCollector {
             this.socket.onerror = (error) => {
                 console.error('WebSocket error:', error);
                 this.updateStatus('Connection error', 'error');
+                this.showAlert(`WebSocket connection failed: ${wsUrl}`, 'error');
             };
 
             this.socket.onclose = () => {
@@ -266,7 +301,7 @@ class LoginBehavioralCollector {
         loginButton.querySelector('.button-text').textContent = 'Authenticating...';
 
         try {
-            const response = await fetch('http://localhost:5000/api/start-session', {
+            const response = await fetch(`${this.getApiBaseUrl()}/api/start-session`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -277,16 +312,34 @@ class LoginBehavioralCollector {
             const result = await response.json();
 
             if (result.success) {
+                let accessToken = result.access_token || null;
+                if (!accessToken) {
+                    const loginResponse = await fetch(`${this.getApiBaseUrl()}/api/login`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ username, password, risk_score: this.currentRiskScore || 0 })
+                    });
+                    const loginResult = await loginResponse.json();
+                    accessToken = loginResult.access_token || null;
+                }
+
+                if (!accessToken) {
+                    this.showAlert('Login succeeded but no access token was returned. Restart backend services and try again.', 'error');
+                    loginButton.disabled = false;
+                    loginButton.querySelector('.button-text').textContent = 'Start Session';
+                    return;
+                }
+
                 this.showAlert('Session started! Redirecting to calibration...', 'success');
 
                 // Store user info
                 localStorage.setItem('user_id', result.user_id);
                 localStorage.setItem('username', result.username);
                 localStorage.setItem('session_id', this.sessionId);
-                if (result.access_token) {
-                    localStorage.setItem('auth_token', result.access_token);
-                    localStorage.setItem('ws_auth_token', result.access_token);
-                }
+                localStorage.setItem('auth_token', accessToken);
+                localStorage.setItem('ws_auth_token', accessToken);
 
                 // Send user authentication event via WebSocket
                 if (this.socket && this.socket.readyState === WebSocket.OPEN) {
@@ -308,7 +361,11 @@ class LoginBehavioralCollector {
             }
         } catch (error) {
             console.error('Login error:', error);
-            this.showAlert('Network error. Please try again.', 'error');
+            if (error instanceof TypeError) {
+                this.showAlert('Request blocked or API unreachable. Disable blockers for this site and confirm backend is running.', 'error');
+            } else {
+                this.showAlert('Network error. Please try again.', 'error');
+            }
             loginButton.disabled = false;
             loginButton.querySelector('.button-text').textContent = 'Start Session';
         }

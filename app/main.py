@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -88,7 +87,7 @@ async def upload_file(file: UploadFile = File(...)) -> dict:
     upload_dir.mkdir(parents=True, exist_ok=True)
     safe_name = Path(file.filename).name
     destination = upload_dir / safe_name
-    await asyncio.to_thread(destination.write_bytes, raw)
+    destination.write_bytes(raw)
 
     return {
         "success": True,
@@ -109,7 +108,7 @@ async def register(payload: Credentials) -> dict:
     if len(payload.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
 
-    result = await asyncio.to_thread(db.create_user, payload.username, payload.password)
+    result = db.create_user(payload.username, payload.password)
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error", "Registration failed"))
 
@@ -124,7 +123,7 @@ async def register(payload: Credentials) -> dict:
 @route_aliases(["/start-session", "/api/start-session", "/api/v1/start-session"], methods=["POST"], tags=["auth"])
 async def start_session(payload: Credentials) -> dict:
     _ensure_username_not_blocked(payload.username)
-    result = await asyncio.to_thread(db.get_or_create_user, payload.username, payload.password)
+    result = db.get_or_create_user(payload.username, payload.password)
     if not result.get("success"):
         if _is_blocked_error(result.get("error")):
             raise HTTPException(status_code=403, detail=result.get("error", "User blocked"))
@@ -139,9 +138,9 @@ async def start_session(payload: Credentials) -> dict:
 @route_aliases(["/login", "/api/login", "/api/v1/login"], methods=["POST"], tags=["auth"])
 async def login(payload: LoginPayload, request: Request) -> dict:
     _ensure_username_not_blocked(payload.username)
-    result = await asyncio.to_thread(db.verify_user, payload.username, payload.password)
+    result = db.verify_user(payload.username, payload.password)
     client_ip = request.client.host if request.client else None
-    await asyncio.to_thread(db.log_login_attempt, payload.username, int(result.get("success", False)), payload.risk_score, client_ip)
+    db.log_login_attempt(payload.username, int(result.get("success", False)), payload.risk_score, client_ip)
 
     if result.get("success") and payload.risk_score > settings.high_risk_threshold:
         raise HTTPException(status_code=403, detail="High behavioral risk detected. Additional authentication required.")
@@ -166,8 +165,7 @@ async def login(payload: LoginPayload, request: Request) -> dict:
 @route_aliases(["/behavioral-profile", "/api/behavioral-profile", "/api/v1/behavioral-profile"], methods=["POST"], tags=["auth"])
 async def save_behavioral_profile(payload: BehavioralProfilePayload) -> dict:
     _ensure_user_id_not_blocked(payload.user_id)
-    result = await asyncio.to_thread(
-        db.save_behavioral_profile,
+    result = db.save_behavioral_profile(
         payload.user_id,
         payload.session_id,
         payload.keystroke_data,
@@ -181,7 +179,7 @@ async def save_behavioral_profile(payload: BehavioralProfilePayload) -> dict:
 
 @route_aliases(["/user/{username}", "/api/user/{username}", "/api/v1/user/{username}"], methods=["GET"], response_model=UserResult, tags=["auth"])
 async def get_user(username: str) -> dict:
-    result = await asyncio.to_thread(db.get_user, username)
+    result = db.get_user(username)
     if not result.get("success"):
         raise HTTPException(status_code=404, detail=result.get("error", "User not found"))
     return result
@@ -199,7 +197,7 @@ async def get_user(username: str) -> dict:
 )
 async def behavioral_history(user_id: int, limit: int = Query(default=10, ge=1)) -> dict:
     bounded_limit = min(limit, settings.max_behavior_history_limit)
-    result = await asyncio.to_thread(db.get_behavioral_history, user_id, bounded_limit)
+    result = db.get_behavioral_history(user_id, bounded_limit)
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error", "Failed to fetch behavioral history"))
     return result
