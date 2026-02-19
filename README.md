@@ -58,6 +58,7 @@ No separate process needed. WebSocket is served by FastAPI at `/ws/behavioral`.
 - `POST /api/projects/{project_id}/tasks`
 - `PATCH /api/tasks/{task_id}`
 - `GET /api/security-events` (analyst/admin)
+- `GET /api/realtime-monitor` (analyst/admin)
 - `POST /api/admin/users/{username}/role` (admin)
 
 Frontend pages are served at `http://localhost:5000`.
@@ -68,3 +69,23 @@ Role model:
 - `user`: standard account
 - `analyst`: can read security events + other user data
 - `admin`: full access including role changes
+
+## Watch Realtime Detection
+
+Run API with verbose logs:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --log-level info
+```
+
+The realtime service emits log lines with prefix `realtime_event` for:
+- websocket connect/auth/disconnect
+- behavioral packet receipt + risk score
+- profile updates/training state
+- anomaly blocks/session terminations
+
+You can also query monitor state (as `analyst` or `admin`):
+
+```bash
+curl -s http://localhost:5000/api/realtime-monitor -H "Authorization: Bearer <TOKEN>" | jq
+```

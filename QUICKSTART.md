@@ -48,6 +48,7 @@ No separate websocket server is required now. Realtime monitoring is served from
 - Workspace: `http://localhost:5000/dashboard/index.html`
 - Swagger: `http://localhost:5000/docs`
 - Health: `http://localhost:5000/health`
+- Realtime monitor: `GET /api/realtime-monitor` (analyst/admin token required)
 
 JWT is issued by `/api/start-session` and stored by the frontend automatically.
 

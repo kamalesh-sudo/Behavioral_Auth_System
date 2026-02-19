@@ -92,7 +92,7 @@ class CalibrationHandler {
 
             this.socket.onclose = () => {
                 if (this.wsRetryCount >= this.maxWsRetries) {
-                    document.getElementById('statusText').textContent = `WebSocket unavailable (${wsUrl}). Start websocket_server.py and refresh.`;
+                    document.getElementById('statusText').textContent = `WebSocket unavailable (${wsUrl}). Ensure FastAPI is running and refresh.`;
                     document.getElementById('statusDot').style.background = 'var(--danger-color)';
                     return;
                 }

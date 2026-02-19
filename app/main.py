@@ -131,6 +131,17 @@ async def get_security_events(
     return result
 
 
+@route_aliases(
+    ["/realtime-monitor", "/api/realtime-monitor", "/api/v1/realtime-monitor"],
+    methods=["GET"],
+    tags=["security"],
+)
+async def realtime_monitor(principal: dict = Depends(require_roles("analyst", "admin"))) -> dict:
+    snapshot = realtime_service.get_monitor_snapshot()
+    snapshot["requested_by"] = principal["username"]
+    return snapshot
+
+
 @route_aliases(["/upload", "/api/upload", "/api/v1/upload"], methods=["POST"], response_model=UploadResult, tags=["agent"])
 async def upload_file(file: UploadFile = File(...)) -> dict:
     raw = await file.read()

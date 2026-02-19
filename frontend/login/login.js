@@ -347,13 +347,6 @@ class LoginBehavioralCollector {
                 localStorage.setItem('auth_token', accessToken);
                 localStorage.setItem('ws_auth_token', accessToken);
 
-                this.pendingAuthPayload = {
-                    type: 'user_authentication',
-                    userId: username,
-                    sessionId: this.sessionId
-                };
-                this.connectWebSocket();
-
                 // Redirect to dashboard after 1 second
                 setTimeout(() => {
                     window.location.href = '../dashboard/index.html';
