@@ -1,0 +1,205 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Inter", sans-serif;
+    background: #f4f6f8;
+    color: #1f2937;
+}
+
+.app-shell {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+}
+
+.sidebar {
+    background: #111827;
+    color: #f9fafb;
+    padding: 20px;
+}
+
+.brand {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 18px;
+}
+
+.user-box {
+    background: #1f2937;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.project-list {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.project-list li {
+    padding: 10px;
+    border-radius: 8px;
+    background: #1f2937;
+    cursor: pointer;
+}
+
+.project-list li.active {
+    background: #2563eb;
+}
+
+.main {
+    padding: 20px;
+    display: grid;
+    gap: 16px;
+}
+
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.risk-widget {
+    background: #e0e7ff;
+    color: #1e3a8a;
+    border-radius: 8px;
+    padding: 8px 12px;
+}
+
+.task-create, .board {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.task-form-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+input, select, textarea, button {
+    font: inherit;
+}
+
+input, select, textarea {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+textarea {
+    width: 100%;
+    min-height: 72px;
+}
+
+.primary-btn, .secondary-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+}
+
+.primary-btn {
+    background: #2563eb;
+    color: white;
+}
+
+.secondary-btn {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.column h3 {
+    margin: 0 0 8px;
+}
+
+.task-list {
+    min-height: 220px;
+    display: grid;
+    gap: 8px;
+}
+
+.task-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+    background: #fafafa;
+}
+
+.task-card .meta {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 6px;
+}
+
+.task-card .actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.status {
+    font-size: 14px;
+    color: #4b5563;
+}
+
+.muted {
+    color: #9ca3af;
+    font-size: 12px;
+}
+
+.modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: grid;
+    place-items: center;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+.modal-card {
+    background: white;
+    width: 480px;
+    max-width: calc(100vw - 24px);
+    border-radius: 12px;
+    padding: 16px;
+    display: grid;
+    gap: 8px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+@media (max-width: 1100px) {
+    .app-shell {
+        grid-template-columns: 1fr;
+    }
+    .board {
+        grid-template-columns: 1fr 1fr;
+    }
+    .task-form-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}

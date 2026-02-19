@@ -16,7 +16,10 @@ from app.schemas import (
     BehavioralProfilePayload,
     Credentials,
     LoginPayload,
+    ProjectCreatePayload,
     RoleUpdatePayload,
+    TaskCreatePayload,
+    TaskUpdatePayload,
     UploadResult,
     UserResult,
 )
@@ -99,6 +102,15 @@ def require_roles(*roles: str):
         return principal
 
     return _role_dependency
+
+
+def _ensure_project_access(principal: dict, project_id: int) -> dict:
+    project = db.get_project(project_id)
+    if not project.get("success"):
+        raise HTTPException(status_code=404, detail=project.get("error", "Project not found"))
+    if principal["role"] not in {"analyst", "admin"} and project["project"]["owner_id"] != principal["user_id"]:
+        raise HTTPException(status_code=403, detail="Cannot access another user's project")
+    return project["project"]
 
 
 @route_aliases(["/health", "/api/health", "/api/v1/health"], methods=["GET"], tags=["health"])
@@ -298,6 +310,111 @@ async def update_user_role(
         reason=f"Set role for {username} to {payload.role}",
     )
     return {"success": True, "updated_user": username, "role": payload.role}
+
+
+@route_aliases(["/projects", "/api/projects", "/api/v1/projects"], methods=["GET"], tags=["work"])
+async def list_projects(principal: dict = Depends(get_current_principal)) -> dict:
+    result = db.get_projects_for_user(principal["user_id"])
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to fetch projects"))
+    return result
+
+
+@route_aliases(["/projects", "/api/projects", "/api/v1/projects"], methods=["POST"], tags=["work"])
+async def create_project(payload: ProjectCreatePayload, principal: dict = Depends(get_current_principal)) -> dict:
+    result = db.create_project(principal["user_id"], payload.name, payload.description)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to create project"))
+    db.log_security_event(
+        username=principal["username"],
+        event_type="PROJECT_CREATED",
+        reason=f"Created project {result['project_id']}",
+    )
+    return {"success": True, "project_id": result["project_id"]}
+
+
+@route_aliases(
+    ["/projects/{project_id}/tasks", "/api/projects/{project_id}/tasks", "/api/v1/projects/{project_id}/tasks"],
+    methods=["GET"],
+    tags=["work"],
+)
+async def list_project_tasks(project_id: int, principal: dict = Depends(get_current_principal)) -> dict:
+    _ensure_project_access(principal, project_id)
+    result = db.get_tasks_for_project(project_id)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to fetch tasks"))
+    return result
+
+
+@route_aliases(
+    ["/projects/{project_id}/tasks", "/api/projects/{project_id}/tasks", "/api/v1/projects/{project_id}/tasks"],
+    methods=["POST"],
+    tags=["work"],
+)
+async def create_project_task(
+    project_id: int,
+    payload: TaskCreatePayload,
+    principal: dict = Depends(get_current_principal),
+) -> dict:
+    _ensure_project_access(principal, project_id)
+    assignee_id = None
+    if payload.assignee_username:
+        assignee_user = db.get_user(payload.assignee_username)
+        if not assignee_user.get("success"):
+            raise HTTPException(status_code=404, detail="Assignee not found")
+        assignee_id = assignee_user["user"]["id"]
+
+    result = db.create_task(
+        project_id=project_id,
+        title=payload.title,
+        description=payload.description,
+        status=payload.status,
+        priority=payload.priority,
+        assignee_id=assignee_id,
+        due_date=payload.due_date,
+        created_by=principal["user_id"],
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to create task"))
+    db.log_security_event(
+        username=principal["username"],
+        event_type="TASK_CREATED",
+        reason=f"Created task {result['task_id']} in project {project_id}",
+    )
+    return {"success": True, "task_id": result["task_id"]}
+
+
+@route_aliases(["/tasks/{task_id}", "/api/tasks/{task_id}", "/api/v1/tasks/{task_id}"], methods=["PATCH"], tags=["work"])
+async def update_task(task_id: int, payload: TaskUpdatePayload, principal: dict = Depends(get_current_principal)) -> dict:
+    task = db.get_task(task_id)
+    if not task.get("success"):
+        raise HTTPException(status_code=404, detail=task.get("error", "Task not found"))
+    _ensure_project_access(principal, task["task"]["project_id"])
+
+    assignee_id = None
+    if payload.assignee_username:
+        assignee_user = db.get_user(payload.assignee_username)
+        if not assignee_user.get("success"):
+            raise HTTPException(status_code=404, detail="Assignee not found")
+        assignee_id = assignee_user["user"]["id"]
+
+    result = db.update_task(
+        task_id=task_id,
+        title=payload.title,
+        description=payload.description,
+        status=payload.status,
+        priority=payload.priority,
+        assignee_id=assignee_id,
+        due_date=payload.due_date,
+    )
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to update task"))
+    db.log_security_event(
+        username=principal["username"],
+        event_type="TASK_UPDATED",
+        reason=f"Updated task {task_id}",
+    )
+    return {"success": True, "task_id": task_id}
 
 
 app.include_router(router)

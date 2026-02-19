@@ -103,6 +103,7 @@ class RealtimeBehaviorService:
             return
 
         risk_score = self.analyzer.analyze_real_time(keystroke_data, mouse_data, username)
+        risk_explanation = self.analyzer.get_last_explanation(username)
         self.user_sessions[session_id] = {
             "username": username,
             "websocket": websocket,
@@ -143,6 +144,7 @@ class RealtimeBehaviorService:
             "type": "analysis_result",
             "sessionId": session_id,
             "riskScore": risk_score,
+            "riskExplanation": risk_explanation,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         if risk_score > self.settings.high_risk_threshold:

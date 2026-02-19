@@ -4,21 +4,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Behavioral Authentication Dashboard</title>
+    <title>Freelancer Workspace</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <div class="container">
-        <h1>Behavioral Authentication Dashboard</h1>
-        <div id="risk-score-container">
-            <h2>Real-time Risk Score</h2>
-            <div id="risk-score">0.0</div>
-        </div>
-        <div id="alert-container"></div>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">Freelancer Workspace</div>
+            <div class="user-box">
+                <div><strong id="usernameText">User</strong></div>
+                <div class="muted">Behavioral monitoring enabled</div>
+            </div>
+            <button id="newProjectBtn" class="secondary-btn">New Project</button>
+            <ul id="projectList" class="project-list"></ul>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <h1 id="projectTitle">Select or create a project</h1>
+                <div class="risk-widget">
+                    <span class="muted">Risk</span>
+                    <strong id="riskScore">0.00</strong>
+                </div>
+            </header>
+
+            <section class="task-create">
+                <h2>Create Task</h2>
+                <div class="task-form-grid">
+                    <input id="taskTitleInput" type="text" placeholder="Task title">
+                    <select id="taskPriorityInput">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                    <input id="taskDueDateInput" type="date">
+                    <input id="taskAssigneeInput" type="text" placeholder="Assignee username (optional)">
+                </div>
+                <textarea id="taskDescriptionInput" placeholder="Task description"></textarea>
+                <button id="createTaskBtn" class="primary-btn">Create Task</button>
+            </section>
+
+            <section class="board">
+                <div class="column">
+                    <h3>To Do</h3>
+                    <div id="todoColumn" class="task-list"></div>
+                </div>
+                <div class="column">
+                    <h3>In Progress</h3>
+                    <div id="inProgressColumn" class="task-list"></div>
+                </div>
+                <div class="column">
+                    <h3>Review</h3>
+                    <div id="reviewColumn" class="task-list"></div>
+                </div>
+                <div class="column">
+                    <h3>Done</h3>
+                    <div id="doneColumn" class="task-list"></div>
+                </div>
+            </section>
+
+            <div id="statusBar" class="status">Ready</div>
+        </main>
     </div>
+
+    <div id="modal" class="modal hidden">
+        <div class="modal-card">
+            <h3>Create Project</h3>
+            <input id="projectNameInput" type="text" placeholder="Project name">
+            <textarea id="projectDescriptionInput" placeholder="Project description (optional)"></textarea>
+            <div class="modal-actions">
+                <button id="cancelProjectBtn" class="secondary-btn">Cancel</button>
+                <button id="saveProjectBtn" class="primary-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
     <script src="dashboard.js"></script>
-    <script src="../collector/behavioral-collector.js"></script>
 </body>
 
 </html>

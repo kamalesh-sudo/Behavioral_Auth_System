@@ -53,3 +53,26 @@ class BehavioralHistoryResult(BaseModel):
 
 class RoleUpdatePayload(BaseModel):
     role: str = Field(pattern="^(user|analyst|admin)$")
+
+
+class ProjectCreatePayload(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+
+
+class TaskCreatePayload(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=4000)
+    status: str = Field(default="todo", pattern="^(todo|in_progress|review|done)$")
+    priority: str = Field(default="medium", pattern="^(low|medium|high)$")
+    assignee_username: str | None = Field(default=None, max_length=128)
+    due_date: str | None = Field(default=None, max_length=64)
+
+
+class TaskUpdatePayload(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=4000)
+    status: str | None = Field(default=None, pattern="^(todo|in_progress|review|done)$")
+    priority: str | None = Field(default=None, pattern="^(low|medium|high)$")
+    assignee_username: str | None = Field(default=None, max_length=128)
+    due_date: str | None = Field(default=None, max_length=64)

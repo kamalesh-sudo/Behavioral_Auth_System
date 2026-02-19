@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     allowed_origins: list[str] = Field(default_factory=lambda: ["*"])
 
     db_path: str = str((Path(__file__).resolve().parents[1] / "backend" / "users.db"))
+    database_url: str = ""
     frontend_dir: str = str((Path(__file__).resolve().parents[1] / "frontend"))
     upload_dir: str = str((Path(__file__).resolve().parents[1] / "uploads"))
 

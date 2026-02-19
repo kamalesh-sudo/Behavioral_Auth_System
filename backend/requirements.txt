@@ -10,3 +10,4 @@ scikit-learn
 # TensorFlow wheels are unavailable on newer Python versions (e.g. 3.14).
 tensorflow; python_version < "3.13"
 joblib
+psycopg[binary]

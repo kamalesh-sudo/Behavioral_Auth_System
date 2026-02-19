@@ -17,6 +17,7 @@ class LoginBehavioralCollector {
         this.setupEventListeners();
         this.startDataCollection();
         this.updateStatus('Ready. Login to start secure monitoring.', 'warning');
+        this.checkBackendHealth();
     }
 
     getWebSocketToken() {
@@ -353,9 +354,9 @@ class LoginBehavioralCollector {
                 };
                 this.connectWebSocket();
 
-                // Redirect to calibration after 1 second
+                // Redirect to dashboard after 1 second
                 setTimeout(() => {
-                    window.location.href = '../calibration/calibration.html';
+                    window.location.href = '../dashboard/index.html';
                 }, 1000);
             } else {
                 this.showAlert(result.detail || result.error || 'Failed to start session', 'error');
@@ -364,13 +365,28 @@ class LoginBehavioralCollector {
             }
         } catch (error) {
             console.error('Login error:', error);
+            const apiBaseUrl = this.getApiBaseUrl();
             if (error instanceof TypeError) {
-                this.showAlert('Request blocked or API unreachable. Disable blockers for this site and confirm backend is running.', 'error');
+                this.showAlert(`API unreachable at ${apiBaseUrl}. Start backend server and open app via http://localhost:5000/login/login.html`, 'error');
             } else {
                 this.showAlert('Network error. Please try again.', 'error');
             }
             loginButton.disabled = false;
             loginButton.querySelector('.button-text').textContent = 'Start Session';
+        }
+    }
+
+    async checkBackendHealth() {
+        const apiBaseUrl = this.getApiBaseUrl();
+        try {
+            const response = await fetch(`${apiBaseUrl}/health`, { method: 'GET' });
+            if (!response.ok) {
+                this.updateStatus('Backend unavailable', 'error');
+                return;
+            }
+            this.updateStatus('Backend connected', 'success');
+        } catch (error) {
+            this.updateStatus('Backend unreachable', 'error');
         }
     }
 

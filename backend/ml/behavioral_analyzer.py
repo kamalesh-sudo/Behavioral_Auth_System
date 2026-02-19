@@ -3,6 +3,7 @@ from sklearn.ensemble import IsolationForest, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 import joblib
 from pathlib import Path
+from collections import defaultdict
 
 try:
     import tensorflow as tf
@@ -33,21 +34,30 @@ class BehavioralAnalyzer:
         self.is_trained = False
         self.model_dir = Path(__file__).resolve().parents[1] / "models"
         self.model_dir.mkdir(parents=True, exist_ok=True)
+        self.user_feature_history = defaultdict(list)
+        self.user_risk_ema = {}
+        self.min_keystroke_events = 6
+        self.min_mouse_events = 6
+        self.profile_train_min_samples = 8
+        self.profile_history_max = 80
+        self.last_explanations = {}
     
     def create_user_profile(self, user_id, behavioral_data):
         """Create initial user profile from behavioral data"""
         features = self.extract_features(behavioral_data)
+        if not self._has_signal(behavioral_data):
+            return features
         
         # Store user profile
         self.user_profiles[user_id] = {
             'features': features,
             'training_data': behavioral_data,
-            'model': IsolationForest(contamination=0.1, random_state=42)
+            'model': IsolationForest(contamination=0.1, random_state=42),
+            'is_model_trained': False,
+            'feature_keys': sorted(features.keys()),
         }
-        
-        # Train user-specific model
-        feature_matrix = self.prepare_feature_matrix([features])
-        self.user_profiles[user_id]['model'].fit(feature_matrix)
+        self.user_feature_history[user_id].append(features)
+        self._refresh_user_profile_model(user_id)
         
         return features
     
@@ -205,51 +215,98 @@ class BehavioralAnalyzer:
             'keystrokeData': keystroke_data,
             'mouseData': mouse_data
         }
+
+        if not self._has_signal(behavioral_data):
+            if user_id:
+                self.last_explanations[user_id] = {
+                    "reason": "insufficient_signal",
+                    "components": {"fallback": 0.05},
+                    "top_deviations": [],
+                }
+            return self._smoothed_risk(user_id, 0.05)
         
         features = self.extract_features(behavioral_data)
         
         if not features:
-            return 0.0
+            if user_id:
+                self.last_explanations[user_id] = {
+                    "reason": "empty_features",
+                    "components": {"fallback": 0.05},
+                    "top_deviations": [],
+                }
+            return self._smoothed_risk(user_id, 0.05)
         
         # If user-specific model exists, use it
         if user_id and user_id in self.user_profiles:
-            return self.analyze_with_user_model(features, user_id)
+            risk, explanation = self.analyze_with_user_model(features, user_id)
+            self._append_user_history(user_id, features)
+            self.last_explanations[user_id] = explanation
+            return self._smoothed_risk(user_id, risk)
         
         # Otherwise, use global model
-        return self.analyze_with_global_model(features)
+        risk = self.analyze_with_global_model(features)
+        if user_id:
+            self._append_user_history(user_id, features)
+            if user_id not in self.user_profiles:
+                self.create_user_profile(user_id, behavioral_data)
+            self.last_explanations[user_id] = {
+                "reason": "global_model",
+                "components": {"global": float(risk)},
+                "top_deviations": [],
+            }
+        return self._smoothed_risk(user_id, risk)
     
     def analyze_with_user_model(self, features, user_id):
         """Analyze using user-specific model"""
         user_profile = self.user_profiles[user_id]
-        feature_matrix = self.prepare_feature_matrix([features])
-        
-        # Anomaly detection
-        anomaly_score = user_profile['model'].decision_function(feature_matrix)[0]
-        
-        # Normalize to 0-1 range (higher = more anomalous)
-        risk_score = max(0, min(1, (0.5 - anomaly_score) / 1.0))
-        
-        return risk_score
+        keys = user_profile.get("feature_keys") or sorted(features.keys())
+        feature_vector = np.array([[features.get(k, 0.0) for k in keys]], dtype=float)
+
+        model_risk = 0.5
+        if user_profile.get("is_model_trained"):
+            try:
+                anomaly_score = user_profile['model'].decision_function(feature_vector)[0]
+                model_risk = float(np.clip((0.5 - anomaly_score) / 1.2, 0.0, 1.0))
+            except Exception:  # pylint: disable=broad-except
+                model_risk = 0.5
+
+        distance_risk, top_deviations = self._profile_distance_risk(user_id, features, keys)
+        global_risk = self.analyze_with_global_model(features)
+        # Stronger user-model weighting, with global model as secondary.
+        combined = (0.50 * model_risk) + (0.35 * distance_risk) + (0.15 * global_risk)
+        explanation = {
+            "reason": "user_model",
+            "components": {
+                "model": float(model_risk),
+                "distance": float(distance_risk),
+                "global": float(global_risk),
+            },
+            "top_deviations": top_deviations,
+        }
+        return float(np.clip(combined, 0.0, 1.0)), explanation
     
     def analyze_with_global_model(self, features):
         """Analyze using global model"""
         if not self.is_trained:
-            return 0.0
+            # Cold-start fallback: conservative non-zero uncertainty.
+            return 0.25
         
         feature_matrix = self.prepare_feature_matrix([features])
-        feature_matrix_scaled = self.scaler.transform(feature_matrix)
-        
-        # Get prediction probabilities
-        probabilities = self.classifier.predict_proba(feature_matrix_scaled)[0]
-        
-        # Calculate risk score based on prediction confidence
-        max_probability = np.max(probabilities)
-        risk_score = 1.0 - max_probability
-        
-        return risk_score
+        try:
+            if hasattr(self.scaler, "n_features_in_") and feature_matrix.shape[1] != int(self.scaler.n_features_in_):
+                return 0.35
+            feature_matrix_scaled = self.scaler.transform(feature_matrix)
+            probabilities = self.classifier.predict_proba(feature_matrix_scaled)[0]
+            max_probability = np.max(probabilities)
+            risk_score = 1.0 - max_probability
+            return float(np.clip(risk_score, 0.0, 1.0))
+        except Exception:  # pylint: disable=broad-except
+            return 0.35
     
     def update_user_profile(self, user_id, behavioral_data, feedback=None):
         """Update user profile with new behavioral data"""
+        if not self._has_signal(behavioral_data):
+            return
         if user_id not in self.user_profiles:
             self.create_user_profile(user_id, behavioral_data)
             return
@@ -259,10 +316,7 @@ class BehavioralAnalyzer:
         # Update user profile
         self.user_profiles[user_id]['features'] = new_features
         self.user_profiles[user_id]['training_data'] = behavioral_data
-        
-        # Retrain user-specific model
-        feature_matrix = self.prepare_feature_matrix([new_features])
-        self.user_profiles[user_id]['model'].fit(feature_matrix)
+        self._append_user_history(user_id, new_features)
     
     def save_models(self):
         """Save trained models to disk"""
@@ -293,3 +347,67 @@ class BehavioralAnalyzer:
         except Exception:  # pylint: disable=broad-except
             print("Models not found, please train first")
             return False
+
+    def _has_signal(self, behavioral_data: dict) -> bool:
+        keystrokes = behavioral_data.get("keystrokeData", []) or []
+        mouse = behavioral_data.get("mouseData", []) or []
+        return len(keystrokes) >= self.min_keystroke_events or len(mouse) >= self.min_mouse_events
+
+    def _append_user_history(self, user_id: str, features: dict) -> None:
+        history = self.user_feature_history[user_id]
+        history.append(features)
+        if len(history) > self.profile_history_max:
+            del history[0 : len(history) - self.profile_history_max]
+        self._refresh_user_profile_model(user_id)
+
+    def _refresh_user_profile_model(self, user_id: str) -> None:
+        profile = self.user_profiles.get(user_id)
+        history = self.user_feature_history[user_id]
+        if not profile or not history:
+            return
+        keys = profile.get("feature_keys") or sorted(history[-1].keys())
+        profile["feature_keys"] = keys
+        if len(history) < self.profile_train_min_samples:
+            profile["is_model_trained"] = False
+            return
+        matrix = np.array([[sample.get(k, 0.0) for k in keys] for sample in history], dtype=float)
+        try:
+            profile["model"].fit(matrix)
+            profile["is_model_trained"] = True
+        except Exception:  # pylint: disable=broad-except
+            profile["is_model_trained"] = False
+
+    def _profile_distance_risk(self, user_id: str, features: dict, keys: list[str]) -> tuple[float, list[dict]]:
+        history = self.user_feature_history[user_id]
+        if len(history) < 3:
+            return 0.35, []
+        matrix = np.array([[sample.get(k, 0.0) for k in keys] for sample in history], dtype=float)
+        baseline_mean = np.mean(matrix, axis=0)
+        baseline_std = np.std(matrix, axis=0) + 1e-6
+        current = np.array([features.get(k, 0.0) for k in keys], dtype=float)
+        z = np.abs((current - baseline_mean) / baseline_std)
+        # Robust aggregated shift from normal behavior.
+        z_score = float(np.median(z))
+        top_idx = np.argsort(z)[-5:][::-1]
+        top_deviations = [
+            {"feature": keys[int(i)], "z_score": float(z[int(i)]), "value": float(current[int(i)]), "baseline": float(baseline_mean[int(i)])}
+            for i in top_idx
+        ]
+        return float(np.clip(z_score / 4.0, 0.0, 1.0)), top_deviations
+
+    def _smoothed_risk(self, user_id: str | None, risk: float) -> float:
+        risk = float(np.clip(risk, 0.0, 1.0))
+        if not user_id:
+            return risk
+        previous = self.user_risk_ema.get(user_id)
+        if previous is None:
+            self.user_risk_ema[user_id] = risk
+            return risk
+        ema = 0.65 * previous + 0.35 * risk
+        self.user_risk_ema[user_id] = ema
+        return float(np.clip(ema, 0.0, 1.0))
+
+    def get_last_explanation(self, user_id: str | None) -> dict:
+        if not user_id:
+            return {"reason": "unknown", "components": {}, "top_deviations": []}
+        return self.last_explanations.get(user_id, {"reason": "none", "components": {}, "top_deviations": []})

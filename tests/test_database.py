@@ -85,6 +85,37 @@ class AuthDatabaseTests(unittest.TestCase):
         self.assertTrue(events['success'])
         self.assertEqual(events['events'][0]['event_type'], 'TEST_EVENT')
 
+    def test_project_and_task_flow(self) -> None:
+        owner = self.db.create_user('frank', 'secret123')
+        self.assertTrue(owner['success'])
+
+        project = self.db.create_project(owner['user_id'], 'Client Portal', 'Freelance project')
+        self.assertTrue(project['success'])
+
+        created_task = self.db.create_task(
+            project_id=project['project_id'],
+            title='Build login screen',
+            description='Implement auth UX',
+            status='todo',
+            priority='high',
+            assignee_id=owner['user_id'],
+            due_date='2026-03-01',
+            created_by=owner['user_id'],
+        )
+        self.assertTrue(created_task['success'])
+
+        tasks = self.db.get_tasks_for_project(project['project_id'])
+        self.assertTrue(tasks['success'])
+        self.assertEqual(len(tasks['tasks']), 1)
+        self.assertEqual(tasks['tasks'][0]['title'], 'Build login screen')
+
+        updated = self.db.update_task(created_task['task_id'], status='in_progress')
+        self.assertTrue(updated['success'])
+
+        task = self.db.get_task(created_task['task_id'])
+        self.assertTrue(task['success'])
+        self.assertEqual(task['task']['status'], 'in_progress')
+
 
 if __name__ == '__main__':
     unittest.main()
