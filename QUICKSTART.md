@@ -30,8 +30,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
 ## 4. Run websocket analyzer (optional but recommended)
 
 ```bash
-cd backend
-python websocket_server.py
+No separate websocket server is required now.
+Realtime monitoring is served from FastAPI at `/ws/behavioral`.
 ```
 
 ## 5. Open

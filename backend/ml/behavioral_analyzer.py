@@ -17,7 +17,10 @@ except Exception:  # pylint: disable=broad-except
     Dropout = None
     TENSORFLOW_AVAILABLE = False
 
-from ml.feature_extractor import BehavioralFeatureExtractor
+try:
+    from ml.feature_extractor import BehavioralFeatureExtractor
+except ImportError:
+    from backend.ml.feature_extractor import BehavioralFeatureExtractor
 
 class BehavioralAnalyzer:
     def __init__(self):

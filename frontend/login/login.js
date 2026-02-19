@@ -57,8 +57,8 @@ class LoginBehavioralCollector {
         if (host === '0.0.0.0') {
             host = 'localhost';
         }
-        const port = (window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.wsPort) || 8765;
-        return `${protocol}//${host}:${port}`;
+        const portPart = window.location && window.location.port ? `:${window.location.port}` : '';
+        return `${protocol}//${host}${portPart}/ws/behavioral`;
     }
 
     generateSessionId() {

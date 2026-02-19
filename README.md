@@ -1,8 +1,7 @@
 # Behavioral Authentication System
 
 Clean, Python-first behavioral auth project with two runtime components:
-- FastAPI app for REST APIs + static frontend serving
-- WebSocket server for real-time behavioral risk scoring
+- FastAPI app for REST APIs + static frontend serving + websocket realtime risk scoring
 
 ## Project Structure
 
@@ -40,8 +39,7 @@ Set `JWT_SECRET_KEY` (or `AUTH_TOKEN` as fallback) in `.env` before starting ser
 Optional websocket server (recommended for behavioral scoring):
 
 ```bash
-cd backend
-python websocket_server.py
+No separate process needed. WebSocket is served by FastAPI at `/ws/behavioral`.
 ```
 
 ## Main Endpoints

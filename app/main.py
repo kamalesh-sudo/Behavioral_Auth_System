@@ -1,13 +1,14 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile, WebSocket, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import get_db
+from app.realtime import RealtimeBehaviorService
 from app.alerts import send_security_alert
 from app.security import create_access_token, verify_access_token
 from app.schemas import (
@@ -22,6 +23,7 @@ from app.schemas import (
 
 settings = get_settings()
 db = get_db()
+realtime_service = RealtimeBehaviorService(settings, db)
 app = FastAPI(title=settings.app_name)
 router = APIRouter()
 
@@ -299,6 +301,11 @@ async def update_user_role(
 
 
 app.include_router(router)
+
+
+@app.websocket("/ws/behavioral")
+async def behavioral_websocket(websocket: WebSocket) -> None:
+    await realtime_service.handle_client(websocket)
 
 frontend_dir = Path(settings.frontend_dir)
 if frontend_dir.exists():
