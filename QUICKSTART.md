@@ -18,6 +18,7 @@ Set JWT secret in `.env`:
 
 ```bash
 JWT_SECRET_KEY=replace_with_strong_secret
+INITIAL_ADMIN_USERNAME=admin
 ```
 
 ## 3. Run API
@@ -40,3 +41,6 @@ python websocket_server.py
 - Health: `http://localhost:5000/health`
 
 JWT is issued by `/api/start-session` and stored by the frontend automatically.
+
+Optional:
+- Set `ALERT_WEBHOOK_URL` to receive security event webhooks.

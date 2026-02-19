@@ -17,10 +17,12 @@ class AuthDatabaseTests(unittest.TestCase):
     def test_create_and_verify_user(self) -> None:
         created = self.db.create_user('alice', 'secret123')
         self.assertTrue(created['success'])
+        self.assertEqual(created['role'], 'user')
 
         verified = self.db.verify_user('alice', 'secret123')
         self.assertTrue(verified['success'])
         self.assertEqual(verified['username'], 'alice')
+        self.assertEqual(verified['role'], 'user')
 
     def test_block_user_disables_login_and_marks_blocked(self) -> None:
         created = self.db.create_user('bob', 'secret123')
@@ -61,6 +63,27 @@ class AuthDatabaseTests(unittest.TestCase):
         self.assertTrue(history['success'])
         self.assertEqual(len(history['history']), 1)
         self.assertEqual(history['history'][0]['session_id'], 'session-3')
+
+    def test_set_user_role_and_security_events(self) -> None:
+        created = self.db.create_user('erin', 'secret123')
+        self.assertTrue(created['success'])
+
+        updated = self.db.set_user_role('erin', 'analyst')
+        self.assertTrue(updated['success'])
+        self.assertEqual(updated['role'], 'analyst')
+
+        event = self.db.log_security_event(
+            username='erin',
+            event_type='TEST_EVENT',
+            reason='unit test event',
+            session_id='session-4',
+            risk_score=0.2,
+        )
+        self.assertTrue(event['success'])
+
+        events = self.db.get_security_events(limit=10, username='erin')
+        self.assertTrue(events['success'])
+        self.assertEqual(events['events'][0]['event_type'], 'TEST_EVENT')
 
 
 if __name__ == '__main__':

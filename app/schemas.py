@@ -18,19 +18,6 @@ class BehavioralProfilePayload(BaseModel):
     risk_score: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
-class QueryPayload(BaseModel):
-    query: str = Field(min_length=1)
-    session_id: str | None = Field(default=None, max_length=256)
-    context: dict | None = None
-
-
-class QueryResult(BaseModel):
-    success: bool
-    answer: str
-    confidence: float = Field(ge=0.0, le=1.0)
-    session_id: str | None = None
-
-
 class UploadResult(BaseModel):
     success: bool
     filename: str

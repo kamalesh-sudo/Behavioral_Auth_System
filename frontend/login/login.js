@@ -8,14 +8,15 @@ class LoginBehavioralCollector {
         this.currentRiskScore = 0;
         this.isCollecting = false;
         this.sessionTerminated = false;
+        this.pendingAuthPayload = null;
 
         this.init();
     }
 
     init() {
         this.setupEventListeners();
-        this.connectWebSocket();
         this.startDataCollection();
+        this.updateStatus('Ready. Login to start secure monitoring.', 'warning');
     }
 
     getWebSocketToken() {
@@ -89,12 +90,12 @@ class LoginBehavioralCollector {
         const wsToken = this.getWebSocketToken();
 
         if (!wsToken) {
-            this.updateStatus('WebSocket token missing', 'error');
-            this.showAlert('Set WebSocket token in localStorage key "ws_auth_token".', 'error');
+            this.updateStatus('Waiting for login token', 'warning');
             return;
         }
 
         try {
+            localStorage.setItem('ws_url', wsUrl);
             this.socket = new WebSocket(wsUrl);
 
             this.socket.onopen = () => {
@@ -105,6 +106,11 @@ class LoginBehavioralCollector {
                 this.socket.send(JSON.stringify({
                     token: wsToken
                 }));
+
+                if (this.pendingAuthPayload) {
+                    this.socket.send(JSON.stringify(this.pendingAuthPayload));
+                    this.pendingAuthPayload = null;
+                }
             };
 
             this.socket.onmessage = (event) => {
@@ -120,11 +126,6 @@ class LoginBehavioralCollector {
             this.socket.onclose = () => {
                 console.log('WebSocket disconnected');
                 this.updateStatus('Disconnected', 'warning');
-
-                // Attempt to reconnect after 3 seconds
-                if (!this.sessionTerminated) {
-                    setTimeout(() => this.connectWebSocket(), 3000);
-                }
             };
         } catch (error) {
             console.error('Failed to connect WebSocket:', error);
@@ -270,12 +271,16 @@ class LoginBehavioralCollector {
 
         const payload = {
             type: 'behavioral_data',
-            userId: document.getElementById('username').value || 'guest',
+            userId: document.getElementById('username').value,
             sessionId: this.sessionId,
             keystrokeData: this.keystrokeData,
             mouseData: this.mouseData,
             timestamp: Date.now()
         };
+
+        if (!payload.userId) {
+            return;
+        }
 
         this.socket.send(JSON.stringify(payload));
 
@@ -341,14 +346,12 @@ class LoginBehavioralCollector {
                 localStorage.setItem('auth_token', accessToken);
                 localStorage.setItem('ws_auth_token', accessToken);
 
-                // Send user authentication event via WebSocket
-                if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                    this.socket.send(JSON.stringify({
-                        type: 'user_authentication',
-                        userId: username,
-                        sessionId: this.sessionId
-                    }));
-                }
+                this.pendingAuthPayload = {
+                    type: 'user_authentication',
+                    userId: username,
+                    sessionId: this.sessionId
+                };
+                this.connectWebSocket();
 
                 // Redirect to calibration after 1 second
                 setTimeout(() => {
@@ -371,10 +374,29 @@ class LoginBehavioralCollector {
         }
     }
 
-    handleRegister() {
-        // Redirect to registration page or show registration form
-        this.showAlert('Registration feature coming soon!', 'warning');
-        // window.location.href = 'register.html';
+    async handleRegister() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        if (!username || !password) {
+            this.showAlert('Enter username and password to register.', 'warning');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.getApiBaseUrl()}/api/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const result = await response.json();
+            if (response.ok && result.success) {
+                this.showAlert('Registration successful. You can now start session.', 'success');
+                return;
+            }
+            this.showAlert(result.detail || result.error || 'Registration failed.', 'error');
+        } catch (error) {
+            this.showAlert('Registration failed due to network error.', 'error');
+        }
     }
 
     togglePassword() {

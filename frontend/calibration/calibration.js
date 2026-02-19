@@ -12,6 +12,8 @@ class CalibrationHandler {
         this.sessionId = localStorage.getItem('session_id');
         this.userId = localStorage.getItem('user_id');
         this.username = localStorage.getItem('username');
+        this.wsRetryCount = 0;
+        this.maxWsRetries = 5;
 
         if (!this.username) {
             window.location.href = '../login/login.html';
@@ -40,6 +42,10 @@ class CalibrationHandler {
         if (window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.wsUrl) {
             return window.RUNTIME_CONFIG.wsUrl;
         }
+        const storedWsUrl = localStorage.getItem('ws_url');
+        if (storedWsUrl) {
+            return storedWsUrl;
+        }
 
         const protocol = (window.location && window.location.protocol === 'https:') ? 'wss:' : 'ws:';
         let host = (window.location && window.location.hostname) ? window.location.hostname : 'localhost';
@@ -66,6 +72,7 @@ class CalibrationHandler {
 
             this.socket.onopen = () => {
                 console.log('WebSocket connected');
+                this.wsRetryCount = 0;
                 document.getElementById('statusText').textContent = 'Connected. Start typing.';
                 document.getElementById('statusDot').style.background = 'var(--success-color)';
 
@@ -82,6 +89,17 @@ class CalibrationHandler {
                 console.error('WebSocket error:', error);
                 document.getElementById('statusText').textContent = `WebSocket error (${wsUrl})`;
                 document.getElementById('statusDot').style.background = 'var(--danger-color)';
+            };
+
+            this.socket.onclose = () => {
+                if (this.wsRetryCount >= this.maxWsRetries) {
+                    document.getElementById('statusText').textContent = `WebSocket unavailable (${wsUrl}). Start websocket_server.py and refresh.`;
+                    document.getElementById('statusDot').style.background = 'var(--danger-color)';
+                    return;
+                }
+                this.wsRetryCount += 1;
+                document.getElementById('statusText').textContent = `Reconnecting websocket (${this.wsRetryCount}/${this.maxWsRetries})...`;
+                setTimeout(() => this.connectWebSocket(), 1500);
             };
 
         } catch (error) {
@@ -225,6 +243,8 @@ class CalibrationHandler {
             }, 1000);
         } else {
             this.isSubmitting = false;
+            document.getElementById('statusText').textContent = 'WebSocket not connected. Please wait for reconnect.';
+            document.getElementById('statusDot').style.background = 'var(--danger-color)';
             alert('Connection lost. Please refresh and try again.');
         }
     }

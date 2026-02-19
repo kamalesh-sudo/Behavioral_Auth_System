@@ -47,7 +47,6 @@ python websocket_server.py
 ## Main Endpoints
 
 - `GET /health`
-- `POST /query`
 - `POST /upload`
 - `POST /api/register`
 - `POST /api/start-session`
@@ -55,7 +54,14 @@ python websocket_server.py
 - `POST /api/behavioral-profile`
 - `GET /api/user/{username}`
 - `GET /api/user/{user_id}/behavioral-history`
+- `GET /api/security-events` (analyst/admin)
+- `POST /api/admin/users/{username}/role` (admin)
 
 Frontend pages are served at `http://localhost:5000`.
 
 JWT tokens are now returned by `/api/start-session` and `/api/login`, and the frontend stores them for websocket auth automatically.
+
+Role model:
+- `user`: standard account
+- `analyst`: can read security events + other user data
+- `admin`: full access including role changes

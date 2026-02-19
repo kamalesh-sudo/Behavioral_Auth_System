@@ -14,6 +14,7 @@ if ROOT_DIR not in sys.path:
 
 from app.config import get_settings
 from app.database import AuthDatabase
+from app.alerts import send_security_alert
 from app.security import verify_access_token
 
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
@@ -27,10 +28,6 @@ class BehavioralWebSocketServer:
         self.analyzer.load_models()
         self.connected_clients = set()
         self.user_sessions = {}
-        
-        if not self.analyzer.is_trained:
-            print("Models not found or not trained. Training with dummy data...")
-            self._train_initial_models()
 
     async def terminate_session(self, session_id, user_id, risk_score, reason):
         payload = {
@@ -58,32 +55,6 @@ class BehavioralWebSocketServer:
 
         self.user_sessions.pop(session_id, None)
 
-    def _train_initial_models(self):
-        # Generate some dummy data for initial training
-        dummy_data = []
-        for i in range(5):
-            dummy_keystroke = [
-                {'type': 'keydown', 'keyCode': 65, 'key': 'a', 'timestamp': 100 + i * 10},
-                {'type': 'keyup', 'keyCode': 65, 'key': 'a', 'timestamp': 150 + i * 10, 'dwellTime': 50},
-                {'type': 'keydown', 'keyCode': 66, 'key': 'b', 'timestamp': 200 + i * 10},
-                {'type': 'keyup', 'keyCode': 66, 'key': 'b', 'timestamp': 250 + i * 10, 'dwellTime': 50},
-            ]
-            dummy_mouse = [
-                {'type': 'mousemove', 'x': 100 + i, 'y': 100 + i, 'timestamp': 100 + i * 5},
-                {'type': 'mousemove', 'x': 110 + i, 'y': 110 + i, 'timestamp': 110 + i * 5},
-                {'type': 'click', 'x': 110 + i, 'y': 110 + i, 'button': 0, 'timestamp': 120 + i * 5},
-            ]
-            dummy_data.append({
-                'user_id': f'user_{i}',
-                'behavioral_data': {
-                    'keystrokeData': dummy_keystroke,
-                    'mouseData': dummy_mouse
-                }
-            })
-        
-        self.analyzer.train_global_model(dummy_data)
-        print("Initial models trained and saved.")
-
     async def register_client(self, websocket, path=None):
         """Register new client connection"""
         try:
@@ -109,7 +80,7 @@ class BehavioralWebSocketServer:
             return
 
         self.connected_clients.add(websocket)
-        print(f"Client connected: {websocket.remote_address}")
+        logging.info("Client connected: %s", websocket.remote_address)
         
         try:
             async for message in websocket:
@@ -118,7 +89,7 @@ class BehavioralWebSocketServer:
             pass
         finally:
             self.connected_clients.discard(websocket)
-            print(f"Client disconnected: {websocket.remote_address}")
+            logging.info("Client disconnected: %s", websocket.remote_address)
     
     async def process_message(self, websocket, message):
         """Process incoming behavioral data"""
@@ -159,6 +130,13 @@ class BehavioralWebSocketServer:
         mouse_data = data.get('mouseData', [])
 
         if self.db.is_user_blocked(user_id):
+            self.db.log_security_event(
+                username=user_id,
+                event_type="BLOCKED_USER_ACTIVITY",
+                reason="Blocked user attempted behavioral_data",
+                session_id=session_id,
+                risk_score=1.0,
+            )
             await self.terminate_session(
                 session_id=session_id,
                 user_id=user_id,
@@ -194,6 +172,23 @@ class BehavioralWebSocketServer:
         if risk_score >= self.settings.anomaly_block_threshold:
             block_reason = "Behavioral anomaly detected in real-time monitoring"
             self.db.block_user(user_id, session_id, risk_score, block_reason)
+            self.db.log_security_event(
+                username=user_id,
+                event_type="REALTIME_ANOMALY_BLOCK",
+                reason=block_reason,
+                session_id=session_id,
+                risk_score=risk_score,
+            )
+            send_security_alert(
+                {
+                    "event_type": "REALTIME_ANOMALY_BLOCK",
+                    "username": user_id,
+                    "session_id": session_id,
+                    "risk_score": risk_score,
+                    "reason": block_reason,
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                }
+            )
             await self.terminate_session(session_id, user_id, risk_score, block_reason)
             return
         
@@ -227,6 +222,13 @@ class BehavioralWebSocketServer:
         logging.info(f"User authentication received: userId={user_id}, sessionId={session_id}")
 
         if self.db.is_user_blocked(user_id):
+            self.db.log_security_event(
+                username=user_id,
+                event_type="BLOCKED_USER_AUTH_ATTEMPT",
+                reason="Blocked user attempted user_authentication",
+                session_id=session_id,
+                risk_score=1.0,
+            )
             await self.terminate_session(
                 session_id=session_id,
                 user_id=user_id,
@@ -255,6 +257,13 @@ class BehavioralWebSocketServer:
         behavioral_data = data.get('behavioralData')
 
         if self.db.is_user_blocked(user_id):
+            self.db.log_security_event(
+                username=user_id,
+                event_type="BLOCKED_USER_FEEDBACK",
+                reason="Blocked user attempted feedback event",
+                session_id=session_id,
+                risk_score=1.0,
+            )
             await self.terminate_session(
                 session_id=session_id,
                 user_id=user_id,

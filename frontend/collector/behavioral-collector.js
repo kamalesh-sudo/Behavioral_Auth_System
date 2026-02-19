@@ -112,11 +112,6 @@ class BehavioralDataCollector {
         }
     }
 
-    getAuthToken() {
-        // In a real application, you would get this from local storage or a cookie
-        return 'dummy-auth-token';
-    }
-
     generateSessionId() {
         return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }

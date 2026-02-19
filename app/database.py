@@ -75,7 +75,6 @@ class AuthDatabase:
         )
 
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON behavioral_profiles(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_username ON login_attempts(username)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_timestamp ON login_attempts(timestamp)")
@@ -83,6 +82,8 @@ class AuthDatabase:
 
         conn.commit()
         self._ensure_schema_migrations(conn)
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)")
+        conn.commit()
         conn.close()
 
     def _ensure_schema_migrations(self, conn: sqlite3.Connection) -> None:
