@@ -35,6 +35,8 @@ cp .env.example .env
 uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
 ```
 
+Set `JWT_SECRET_KEY` (or `AUTH_TOKEN` as fallback) in `.env` before starting services.
+
 Optional websocket server (recommended for behavioral scoring):
 
 ```bash
@@ -55,3 +57,5 @@ python websocket_server.py
 - `GET /api/user/{user_id}/behavioral-history`
 
 Frontend pages are served at `http://localhost:5000`.
+
+JWT tokens are now returned by `/api/start-session` and `/api/login`, and the frontend stores them for websocket auth automatically.

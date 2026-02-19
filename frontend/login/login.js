@@ -18,6 +18,13 @@ class LoginBehavioralCollector {
         this.startDataCollection();
     }
 
+    getWebSocketToken() {
+        if (window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.wsAuthToken) {
+            return window.RUNTIME_CONFIG.wsAuthToken;
+        }
+        return localStorage.getItem('ws_auth_token') || localStorage.getItem('auth_token');
+    }
+
     generateSessionId() {
         return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     }
@@ -27,7 +34,10 @@ class LoginBehavioralCollector {
         document.getElementById('loginForm').addEventListener('submit', (e) => this.handleLogin(e));
 
         // Register button
-        document.getElementById('registerButton').addEventListener('click', () => this.handleRegister());
+        const registerButton = document.getElementById('registerButton');
+        if (registerButton) {
+            registerButton.addEventListener('click', () => this.handleRegister());
+        }
 
         // Password toggle
         document.getElementById('togglePassword').addEventListener('click', () => this.togglePassword());
@@ -42,6 +52,13 @@ class LoginBehavioralCollector {
     connectWebSocket() {
         const wsHost = 'localhost';
         const wsPort = 8765;
+        const wsToken = this.getWebSocketToken();
+
+        if (!wsToken) {
+            this.updateStatus('WebSocket token missing', 'error');
+            this.showAlert('Set WebSocket token in localStorage key "ws_auth_token".', 'error');
+            return;
+        }
 
         try {
             this.socket = new WebSocket(`ws://${wsHost}:${wsPort}`);
@@ -52,7 +69,7 @@ class LoginBehavioralCollector {
 
                 // Send authentication token
                 this.socket.send(JSON.stringify({
-                    token: 'your-secret-auth-token'
+                    token: wsToken
                 }));
             };
 
@@ -266,6 +283,10 @@ class LoginBehavioralCollector {
                 localStorage.setItem('user_id', result.user_id);
                 localStorage.setItem('username', result.username);
                 localStorage.setItem('session_id', this.sessionId);
+                if (result.access_token) {
+                    localStorage.setItem('auth_token', result.access_token);
+                    localStorage.setItem('ws_auth_token', result.access_token);
+                }
 
                 // Send user authentication event via WebSocket
                 if (this.socket && this.socket.readyState === WebSocket.OPEN) {

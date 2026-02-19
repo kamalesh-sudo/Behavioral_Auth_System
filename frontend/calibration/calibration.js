@@ -29,9 +29,23 @@ class CalibrationHandler {
         this.inputArea.focus();
     }
 
+    getWebSocketToken() {
+        if (window.RUNTIME_CONFIG && window.RUNTIME_CONFIG.wsAuthToken) {
+            return window.RUNTIME_CONFIG.wsAuthToken;
+        }
+        return localStorage.getItem('ws_auth_token') || localStorage.getItem('auth_token');
+    }
+
     connectWebSocket() {
         const wsHost = 'localhost';
         const wsPort = 8765;
+        const wsToken = this.getWebSocketToken();
+
+        if (!wsToken) {
+            document.getElementById('statusText').textContent = 'WebSocket token missing';
+            document.getElementById('statusDot').style.background = 'var(--danger-color)';
+            return;
+        }
 
         try {
             this.socket = new WebSocket(`ws://${wsHost}:${wsPort}`);
@@ -42,8 +56,12 @@ class CalibrationHandler {
                 document.getElementById('statusDot').style.background = 'var(--success-color)';
 
                 this.socket.send(JSON.stringify({
-                    token: 'your-secret-auth-token'
+                    token: wsToken
                 }));
+            };
+
+            this.socket.onmessage = (event) => {
+                this.handleWebSocketMessage(event);
             };
 
             this.socket.onerror = (error) => {
@@ -54,6 +72,20 @@ class CalibrationHandler {
 
         } catch (error) {
             console.error('Failed to connect WebSocket:', error);
+        }
+    }
+
+    handleWebSocketMessage(event) {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'session_terminated') {
+                document.getElementById('statusText').textContent = 'Session terminated';
+                document.getElementById('statusDot').style.background = 'var(--danger-color)';
+                alert(data.reason || 'Session terminated due to anomaly detection.');
+                window.location.href = '../login/login.html';
+            }
+        } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
         }
     }
 

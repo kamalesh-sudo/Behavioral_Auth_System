@@ -17,6 +17,8 @@ cd backend
 python websocket_server.py
 ```
 
+No manual websocket token setup is needed. The login API returns a JWT and the page stores it automatically.
+
 ## Open login
 
 `http://localhost:5000/login/login.html`

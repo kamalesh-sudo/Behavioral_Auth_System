@@ -14,6 +14,12 @@ cd ..
 cp .env.example .env
 ```
 
+Set JWT secret in `.env`:
+
+```bash
+JWT_SECRET_KEY=replace_with_strong_secret
+```
+
 ## 3. Run API
 
 ```bash
@@ -32,3 +38,5 @@ python websocket_server.py
 - Login: `http://localhost:5000/login/login.html`
 - Swagger: `http://localhost:5000/docs`
 - Health: `http://localhost:5000/health`
+
+JWT is issued by `/api/start-session` and stored by the frontend automatically.

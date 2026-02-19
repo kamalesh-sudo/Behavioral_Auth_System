@@ -14,10 +14,9 @@ if ROOT_DIR not in sys.path:
 
 from app.config import get_settings
 from app.database import AuthDatabase
+from app.security import verify_access_token
 
-# A simple, hardcoded token for authentication.
-# In a real application, this should be a securely generated and managed token.
-AUTH_TOKEN = os.environ.get("AUTH_TOKEN", "your-secret-auth-token")
+AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
 class BehavioralWebSocketServer:
     def __init__(self):
@@ -94,9 +93,20 @@ class BehavioralWebSocketServer:
             # The first message should be an authentication token.
             auth_message = await websocket.recv()
             auth_data = json.loads(auth_message)
-            if auth_data.get('token') != AUTH_TOKEN:
-                await websocket.close(code=1008, reason="Invalid authentication token")
+            token = (auth_data.get("token") or "").strip()
+            if not token:
+                await websocket.close(code=1008, reason="Authentication token missing")
                 return
+            try:
+                claims = verify_access_token(token, self.settings)
+            except (ValueError, RuntimeError):
+                # Legacy fallback for existing clients still using static token.
+                if not AUTH_TOKEN or token != AUTH_TOKEN:
+                    await websocket.close(code=1008, reason="Invalid authentication token")
+                    return
+                claims = {"sub": None, "user_id": None}
+            setattr(websocket, "auth_username", claims.get("sub"))
+            setattr(websocket, "auth_user_id", claims.get("user_id"))
         except (websockets.exceptions.ConnectionClosed, json.JSONDecodeError):
             await websocket.close(code=1008, reason="Authentication failed")
             return
@@ -118,6 +128,11 @@ class BehavioralWebSocketServer:
         try:
             data = json.loads(message)
             message_type = data.get('type')
+            claimed_user = data.get("userId")
+            auth_user = getattr(websocket, "auth_username", None)
+            if auth_user and claimed_user and auth_user != claimed_user:
+                await websocket.close(code=1008, reason="User mismatch for authenticated token")
+                return
             
             if message_type == 'behavioral_data':
                 await self.handle_behavioral_data(websocket, data)
@@ -145,6 +160,15 @@ class BehavioralWebSocketServer:
         session_id = data.get('sessionId')
         keystroke_data = data.get('keystrokeData', [])
         mouse_data = data.get('mouseData', [])
+
+        if self.db.is_user_blocked(user_id):
+            await self.terminate_session(
+                session_id=session_id,
+                user_id=user_id,
+                risk_score=1.0,
+                reason="User account is blocked due to anomaly detection",
+            )
+            return
         
         # Analyze behavioral data
         risk_score = self.analyzer.analyze_real_time(
@@ -185,7 +209,7 @@ class BehavioralWebSocketServer:
         }
         
         # Send alert if high risk
-        if risk_score > 0.7:
+        if risk_score > self.settings.high_risk_threshold:
             response['alert'] = {
                 'level': 'HIGH',
                 'message': 'Unusual behavioral patterns detected',
@@ -205,8 +229,7 @@ class BehavioralWebSocketServer:
         session_id = data.get('sessionId')
         logging.info(f"User authentication received: userId={user_id}, sessionId={session_id}")
 
-        user_info = self.db.get_user(user_id)
-        if user_info.get("success") and not bool(user_info["user"].get("is_active", 1)):
+        if self.db.is_user_blocked(user_id):
             await self.terminate_session(
                 session_id=session_id,
                 user_id=user_id,
@@ -233,6 +256,15 @@ class BehavioralWebSocketServer:
         session_id = data.get('sessionId')
         feedback = data.get('feedback')
         behavioral_data = data.get('behavioralData')
+
+        if self.db.is_user_blocked(user_id):
+            await self.terminate_session(
+                session_id=session_id,
+                user_id=user_id,
+                risk_score=1.0,
+                reason="User account is blocked due to anomaly detection",
+            )
+            return
         
         # Update user profile based on feedback
         self.analyzer.update_user_profile(user_id, behavioral_data, feedback)

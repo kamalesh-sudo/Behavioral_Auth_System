@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     high_risk_threshold: float = 0.7
     anomaly_block_threshold: float = 0.7
     max_behavior_history_limit: int = 100
+    jwt_secret_key: str = ""
+    jwt_access_token_expire_minutes: int = 120
 
 
 @lru_cache

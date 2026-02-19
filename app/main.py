@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import get_db
+from app.security import create_access_token
 from app.schemas import (
     BehavioralHistoryResult,
     BehavioralProfilePayload,
@@ -46,6 +47,16 @@ def route_aliases(paths: list[str], **kwargs):
 def _is_blocked_error(message: str | None) -> bool:
     text = (message or "").lower()
     return "disabled" in text or "blocked" in text
+
+
+def _ensure_username_not_blocked(username: str) -> None:
+    if db.is_user_blocked(username):
+        raise HTTPException(status_code=403, detail="Account is blocked due to behavioral anomaly detection.")
+
+
+def _ensure_user_id_not_blocked(user_id: int) -> None:
+    if db.is_user_id_blocked(user_id):
+        raise HTTPException(status_code=403, detail="Account is blocked due to behavioral anomaly detection.")
 
 
 @route_aliases(["/health", "/api/health", "/api/v1/health"], methods=["GET"], tags=["health"])
@@ -112,16 +123,22 @@ async def register(payload: Credentials) -> dict:
 
 @route_aliases(["/start-session", "/api/start-session", "/api/v1/start-session"], methods=["POST"], tags=["auth"])
 async def start_session(payload: Credentials) -> dict:
+    _ensure_username_not_blocked(payload.username)
     result = await asyncio.to_thread(db.get_or_create_user, payload.username, payload.password)
     if not result.get("success"):
         if _is_blocked_error(result.get("error")):
             raise HTTPException(status_code=403, detail=result.get("error", "User blocked"))
         raise HTTPException(status_code=400, detail=result.get("error", "Failed to start session"))
+    access_token, expires_at = create_access_token(settings, result["username"], result["user_id"])
+    result["access_token"] = access_token
+    result["token_type"] = "bearer"
+    result["expires_at"] = expires_at
     return result
 
 
 @route_aliases(["/login", "/api/login", "/api/v1/login"], methods=["POST"], tags=["auth"])
 async def login(payload: LoginPayload, request: Request) -> dict:
+    _ensure_username_not_blocked(payload.username)
     result = await asyncio.to_thread(db.verify_user, payload.username, payload.password)
     client_ip = request.client.host if request.client else None
     await asyncio.to_thread(db.log_login_attempt, payload.username, int(result.get("success", False)), payload.risk_score, client_ip)
@@ -132,6 +149,7 @@ async def login(payload: LoginPayload, request: Request) -> dict:
         if _is_blocked_error(result.get("error")):
             raise HTTPException(status_code=403, detail=result.get("error", "User blocked"))
         raise HTTPException(status_code=401, detail=result.get("error", "Invalid credentials"))
+    access_token, expires_at = create_access_token(settings, result["username"], result["user_id"])
 
     return {
         "success": True,
@@ -139,11 +157,15 @@ async def login(payload: LoginPayload, request: Request) -> dict:
         "user_id": result["user_id"],
         "username": result["username"],
         "risk_score": payload.risk_score,
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_at": expires_at,
     }
 
 
 @route_aliases(["/behavioral-profile", "/api/behavioral-profile", "/api/v1/behavioral-profile"], methods=["POST"], tags=["auth"])
 async def save_behavioral_profile(payload: BehavioralProfilePayload) -> dict:
+    _ensure_user_id_not_blocked(payload.user_id)
     result = await asyncio.to_thread(
         db.save_behavioral_profile,
         payload.user_id,

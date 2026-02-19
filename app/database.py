@@ -5,8 +5,6 @@ import secrets
 import sqlite3
 from functools import lru_cache
 
-from app.config import get_settings
-
 
 class AuthDatabase:
     def __init__(self, db_path: str):
@@ -114,6 +112,31 @@ class AuthDatabase:
             cursor.execute(
                 "SELECT id, username, created_at, last_login, is_active FROM users WHERE username = ?",
                 (username,),
+            )
+            row = cursor.fetchone()
+            conn.close()
+            if not row:
+                return {"success": False, "error": "User not found"}
+            return {
+                "success": True,
+                "user": {
+                    "id": row[0],
+                    "username": row[1],
+                    "created_at": row[2],
+                    "last_login": row[3],
+                    "is_active": row[4],
+                },
+            }
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
+    def get_user_by_id(self, user_id: int) -> dict:
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id, username, created_at, last_login, is_active FROM users WHERE id = ?",
+                (user_id,),
             )
             row = cursor.fetchone()
             conn.close()
@@ -298,8 +321,22 @@ class AuthDatabase:
         except Exception as exc:  # pylint: disable=broad-except
             return {"success": False, "error": str(exc)}
 
+    def is_user_blocked(self, username: str) -> bool:
+        user = self.get_user(username)
+        if not user.get("success"):
+            return False
+        return int(user["user"].get("is_active", 1)) == 0
+
+    def is_user_id_blocked(self, user_id: int) -> bool:
+        user = self.get_user_by_id(user_id)
+        if not user.get("success"):
+            return False
+        return int(user["user"].get("is_active", 1)) == 0
+
 
 @lru_cache
 def get_db() -> AuthDatabase:
+    from app.config import get_settings
+
     settings = get_settings()
     return AuthDatabase(settings.db_path)
