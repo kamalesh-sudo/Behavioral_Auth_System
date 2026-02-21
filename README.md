@@ -89,3 +89,16 @@ You can also query monitor state (as `analyst` or `admin`):
 ```bash
 curl -s http://localhost:5000/api/realtime-monitor -H "Authorization: Bearer <TOKEN>" | jq
 ```
+
+## Auto-Train Global Model
+
+The server can periodically train the global model from stored behavioral profiles.
+Configure in `.env`:
+
+```bash
+GLOBAL_TRAIN_INTERVAL_SECONDS=300
+GLOBAL_TRAIN_MIN_SAMPLES=30
+GLOBAL_TRAIN_MAX_SAMPLES=5000
+```
+
+Set `GLOBAL_TRAIN_INTERVAL_SECONDS=0` to disable.

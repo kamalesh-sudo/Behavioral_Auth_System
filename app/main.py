@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -429,6 +430,12 @@ async def update_task(task_id: int, payload: TaskUpdatePayload, principal: dict 
 
 
 app.include_router(router)
+
+
+@app.on_event("startup")
+async def start_background_tasks() -> None:
+    if settings.global_train_interval_seconds > 0:
+        asyncio.create_task(realtime_service.auto_train_loop())
 
 
 @app.websocket("/ws/behavioral")

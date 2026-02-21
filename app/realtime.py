@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import asyncio
 from collections import deque
 from datetime import datetime, timezone
 
@@ -38,6 +39,8 @@ class RealtimeBehaviorService:
             "anomalies_blocked": 0,
         }
         self.recent_events: deque[dict] = deque(maxlen=200)
+        self.last_global_train_at: datetime | None = None
+        self.last_global_train_count: int = 0
 
     async def handle_client(self, websocket: WebSocket) -> None:
         await websocket.accept()
@@ -322,6 +325,42 @@ class RealtimeBehaviorService:
         )
         self.user_sessions.pop(session_id, None)
 
+    async def train_global_from_db(self) -> None:
+        limit = max(1, int(self.settings.global_train_max_samples))
+        result = self.db.get_behavioral_training_data(limit=limit)
+        if not result.get("success"):
+            self._record_event("global_train_failed", reason=result.get("error", "db_error"))
+            return
+        dataset = result.get("dataset") or []
+        if len(dataset) < int(self.settings.global_train_min_samples):
+            self._record_event(
+                "global_train_skipped",
+                reason="insufficient_samples",
+                samples=len(dataset),
+                min_samples=int(self.settings.global_train_min_samples),
+            )
+            return
+        if len(dataset) == self.last_global_train_count:
+            self._record_event("global_train_skipped", reason="no_new_data", samples=len(dataset))
+            return
+        try:
+            await asyncio.to_thread(self.analyzer.train_global_model, dataset)
+            self.last_global_train_at = datetime.now(timezone.utc)
+            self.last_global_train_count = len(dataset)
+            self._record_event(
+                "global_train_completed",
+                samples=len(dataset),
+                trained_at=self.last_global_train_at.isoformat(),
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            self._record_event("global_train_failed", reason=str(exc))
+
+    async def auto_train_loop(self) -> None:
+        interval = max(30, int(self.settings.global_train_interval_seconds))
+        while True:
+            await self.train_global_from_db()
+            await asyncio.sleep(interval)
+
     def _record_event(self, event_type: str, **fields) -> None:
         event = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -344,6 +383,8 @@ class RealtimeBehaviorService:
                 "profiles_total": len(self.analyzer.user_profiles),
                 "profiles_trained": trained_profiles,
                 "global_model_trained": bool(self.analyzer.is_trained),
+                "global_last_train_at": self.last_global_train_at.isoformat() if self.last_global_train_at else None,
+                "global_last_train_samples": self.last_global_train_count,
             },
             "recent_events": list(self.recent_events)[:50],
         }

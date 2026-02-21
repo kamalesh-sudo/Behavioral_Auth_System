@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     high_risk_threshold: float = 0.7
     anomaly_block_threshold: float = 0.7
     max_behavior_history_limit: int = 100
+    global_train_interval_seconds: int = 300
+    global_train_min_samples: int = 30
+    global_train_max_samples: int = 5000
     jwt_secret_key: str = ""
     jwt_access_token_expire_minutes: int = 120
     initial_admin_username: str = "admin"

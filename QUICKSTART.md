@@ -54,3 +54,7 @@ JWT is issued by `/api/start-session` and stored by the frontend automatically.
 
 Optional:
 - Set `ALERT_WEBHOOK_URL` to receive security event webhooks.
+- Auto-train global model from stored profiles:
+  - `GLOBAL_TRAIN_INTERVAL_SECONDS=300`
+  - `GLOBAL_TRAIN_MIN_SAMPLES=30`
+  - `GLOBAL_TRAIN_MAX_SAMPLES=5000`
