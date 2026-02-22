@@ -13,6 +13,8 @@ class WorkspaceApp {
         this.mouseData = [];
         this.riskScore = 0;
         this.flushTimer = null;
+        this.taskSearchQuery = "";
+        this.taskPriorityFilter = "all";
 
         if (!this.token || !this.username) {
             window.location.href = "../login/login.html";
@@ -30,6 +32,26 @@ class WorkspaceApp {
         document.getElementById("cancelProjectBtn").addEventListener("click", () => this.closeProjectModal());
         document.getElementById("saveProjectBtn").addEventListener("click", () => this.createProject());
         document.getElementById("createTaskBtn").addEventListener("click", () => this.createTask());
+        document.getElementById("taskSearchInput").addEventListener("input", (event) => {
+            this.taskSearchQuery = event.target.value.trim().toLowerCase();
+            this.renderBoard();
+        });
+        document.getElementById("taskPriorityFilter").addEventListener("change", (event) => {
+            this.taskPriorityFilter = event.target.value;
+            this.renderBoard();
+        });
+        document.getElementById("taskTitleInput").addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                this.createTask();
+            }
+        });
+        document.getElementById("projectNameInput").addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                this.createProject();
+            }
+        });
 
         document.addEventListener("keydown", (e) => this.recordKeyDown(e));
         document.addEventListener("keyup", (e) => this.recordKeyUp(e));
@@ -224,7 +246,42 @@ class WorkspaceApp {
             return;
         }
         this.tasks = data.tasks;
+        this.refreshInsights();
         this.renderBoard();
+    }
+
+    refreshInsights() {
+        const now = new Date();
+        const weekFromNow = new Date(now);
+        weekFromNow.setDate(now.getDate() + 7);
+
+        const highPriority = this.tasks.filter((task) => task.priority === "high").length;
+        const overdue = this.tasks.filter((task) => {
+            if (!task.due_date || task.status === "done") return false;
+            return new Date(task.due_date) < now;
+        }).length;
+        const dueSoon = this.tasks.filter((task) => {
+            if (!task.due_date || task.status === "done") return false;
+            const dueDate = new Date(task.due_date);
+            return dueDate >= now && dueDate <= weekFromNow;
+        }).length;
+
+        document.getElementById("totalTasksCount").textContent = this.tasks.length;
+        document.getElementById("highPriorityCount").textContent = highPriority;
+        document.getElementById("dueSoonCount").textContent = dueSoon;
+        document.getElementById("overdueCount").textContent = overdue;
+    }
+
+    filteredTasks() {
+        return this.tasks.filter((task) => {
+            const matchesPriority =
+                this.taskPriorityFilter === "all" || task.priority === this.taskPriorityFilter;
+            if (!matchesPriority) return false;
+
+            if (!this.taskSearchQuery) return true;
+            const searchableText = `${task.title || ""} ${task.description || ""} ${task.assignee_username || ""}`.toLowerCase();
+            return searchableText.includes(this.taskSearchQuery);
+        });
     }
 
     async createTask() {
@@ -283,7 +340,8 @@ class WorkspaceApp {
             el.innerHTML = "";
         });
 
-        this.tasks.forEach((task) => {
+        const visibleTasks = this.filteredTasks();
+        visibleTasks.forEach((task) => {
             const card = document.createElement("div");
             card.className = "task-card";
             card.innerHTML = `
@@ -304,6 +362,17 @@ class WorkspaceApp {
             });
             card.appendChild(actions);
             columns[task.status].appendChild(card);
+        });
+
+        Object.entries(columns).forEach(([, el]) => {
+            if (!el.hasChildNodes()) {
+                const empty = document.createElement("div");
+                empty.className = "empty-column";
+                empty.textContent = visibleTasks.length
+                    ? "No tasks in this stage."
+                    : "No tasks match current filters.";
+                el.appendChild(empty);
+            }
         });
     }
 }

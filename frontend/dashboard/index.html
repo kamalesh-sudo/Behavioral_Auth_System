@@ -29,6 +29,35 @@
                 </div>
             </header>
 
+            <section class="insights">
+                <article class="insight-card">
+                    <div class="muted">Total Tasks</div>
+                    <strong id="totalTasksCount">0</strong>
+                </article>
+                <article class="insight-card">
+                    <div class="muted">High Priority</div>
+                    <strong id="highPriorityCount">0</strong>
+                </article>
+                <article class="insight-card">
+                    <div class="muted">Due This Week</div>
+                    <strong id="dueSoonCount">0</strong>
+                </article>
+                <article class="insight-card">
+                    <div class="muted">Overdue</div>
+                    <strong id="overdueCount">0</strong>
+                </article>
+            </section>
+
+            <section class="task-controls">
+                <input id="taskSearchInput" type="search" placeholder="Search tasks by title, description, or assignee">
+                <select id="taskPriorityFilter">
+                    <option value="all">All priorities</option>
+                    <option value="high">High priority</option>
+                    <option value="medium">Medium priority</option>
+                    <option value="low">Low priority</option>
+                </select>
+            </section>
+
             <section class="task-create">
                 <h2>Create Task</h2>
                 <div class="task-form-grid">

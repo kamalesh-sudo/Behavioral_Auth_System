@@ -4,7 +4,7 @@
 
 body {
     margin: 0;
-    font-family: "Inter", sans-serif;
+    font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
     background: #f4f6f8;
     color: #1f2937;
 }
@@ -79,6 +79,37 @@ body {
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
+.insights {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.insight-card {
+    background: linear-gradient(140deg, #ffffff 0%, #f9fbff 100%);
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px;
+    display: grid;
+    gap: 6px;
+}
+
+.insight-card strong {
+    font-size: 26px;
+    line-height: 1;
+    color: #0f172a;
+}
+
+.task-controls {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    gap: 10px;
+}
+
 .task-form-grid {
     display: grid;
     grid-template-columns: 2fr 1fr 1fr 1fr;
@@ -132,6 +163,7 @@ textarea {
     min-height: 220px;
     display: grid;
     gap: 8px;
+    align-content: start;
 }
 
 .task-card {
@@ -152,6 +184,16 @@ textarea {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
+}
+
+.empty-column {
+    border: 1px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 14px;
+    color: #6b7280;
+    font-size: 13px;
+    text-align: center;
+    background: #fcfcfd;
 }
 
 .status {
@@ -196,10 +238,25 @@ textarea {
     .app-shell {
         grid-template-columns: 1fr;
     }
+    .insights {
+        grid-template-columns: 1fr 1fr;
+    }
     .board {
         grid-template-columns: 1fr 1fr;
     }
+    .task-controls {
+        grid-template-columns: 1fr;
+    }
     .task-form-grid {
         grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .insights {
+        grid-template-columns: 1fr;
+    }
+    .board {
+        grid-template-columns: 1fr;
     }
 }
