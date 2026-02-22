@@ -57,6 +57,7 @@ No separate process needed. WebSocket is served by FastAPI at `/ws/behavioral`.
 - `GET /api/projects/{project_id}/tasks`
 - `POST /api/projects/{project_id}/tasks`
 - `PATCH /api/tasks/{task_id}`
+- Compatibility aliases: `/api/projects/{project_id}/task` and `/api/task/{task_id}`
 - `GET /api/security-events` (analyst/admin)
 - `GET /api/realtime-monitor` (analyst/admin)
 - `POST /api/admin/users/{username}/role` (admin)

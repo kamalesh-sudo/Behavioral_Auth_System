@@ -15,6 +15,7 @@ class WorkspaceApp {
         this.flushTimer = null;
         this.taskSearchQuery = "";
         this.taskPriorityFilter = "all";
+        this.taskStatusFilter = "all";
 
         if (!this.token || !this.username) {
             window.location.href = "../login/login.html";
@@ -40,6 +41,11 @@ class WorkspaceApp {
             this.taskPriorityFilter = event.target.value;
             this.renderBoard();
         });
+        document.getElementById("taskStatusFilter").addEventListener("change", (event) => {
+            this.taskStatusFilter = event.target.value;
+            this.renderBoard();
+        });
+        document.getElementById("clearTaskFiltersBtn").addEventListener("click", () => this.resetTaskFilters());
         document.getElementById("taskTitleInput").addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -61,6 +67,16 @@ class WorkspaceApp {
 
     setStatus(message) {
         document.getElementById("statusBar").textContent = message;
+    }
+
+    resetTaskFilters() {
+        this.taskSearchQuery = "";
+        this.taskPriorityFilter = "all";
+        this.taskStatusFilter = "all";
+        document.getElementById("taskSearchInput").value = "";
+        document.getElementById("taskPriorityFilter").value = "all";
+        document.getElementById("taskStatusFilter").value = "all";
+        this.renderBoard();
     }
 
     authHeaders() {
@@ -277,6 +293,9 @@ class WorkspaceApp {
             const matchesPriority =
                 this.taskPriorityFilter === "all" || task.priority === this.taskPriorityFilter;
             if (!matchesPriority) return false;
+            const matchesStatus =
+                this.taskStatusFilter === "all" || task.status === this.taskStatusFilter;
+            if (!matchesStatus) return false;
 
             if (!this.taskSearchQuery) return true;
             const searchableText = `${task.title || ""} ${task.description || ""} ${task.assignee_username || ""}`.toLowerCase();
@@ -310,6 +329,7 @@ class WorkspaceApp {
         this.setStatus(`Task ${data.task_id} created`);
         document.getElementById("taskTitleInput").value = "";
         document.getElementById("taskDescriptionInput").value = "";
+        document.getElementById("taskDueDateInput").value = "";
         document.getElementById("taskAssigneeInput").value = "";
         await this.loadTasks(this.currentProjectId);
     }
@@ -329,6 +349,32 @@ class WorkspaceApp {
         await this.loadTasks(this.currentProjectId);
     }
 
+    statusLabel(status) {
+        const labels = {
+            todo: "To Do",
+            in_progress: "In Progress",
+            review: "Review",
+            done: "Done",
+        };
+        return labels[status] || status;
+    }
+
+    formattedDueDate(value) {
+        if (!value) return null;
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return value;
+        return date.toLocaleDateString();
+    }
+
+    priorityLabel(priority) {
+        const labels = {
+            low: "Low",
+            medium: "Medium",
+            high: "High",
+        };
+        return labels[priority] || priority;
+    }
+
     renderBoard() {
         const columns = {
             todo: document.getElementById("todoColumn"),
@@ -344,11 +390,42 @@ class WorkspaceApp {
         visibleTasks.forEach((task) => {
             const card = document.createElement("div");
             card.className = "task-card";
-            card.innerHTML = `
-                <strong>${task.title}</strong>
-                <div>${task.description || ""}</div>
-                <div class="meta">Priority: ${task.priority} ${task.assignee_username ? `| Assignee: ${task.assignee_username}` : ""}</div>
-            `;
+            card.dataset.priority = task.priority || "medium";
+            card.dataset.status = task.status || "todo";
+
+            const title = document.createElement("strong");
+            title.textContent = task.title || "Untitled task";
+            card.appendChild(title);
+
+            if (task.description) {
+                const description = document.createElement("div");
+                description.className = "task-description";
+                description.textContent = task.description;
+                card.appendChild(description);
+            }
+
+            const badges = document.createElement("div");
+            badges.className = "task-badges";
+
+            const priorityBadge = document.createElement("span");
+            priorityBadge.className = `badge badge-${task.priority || "medium"}`;
+            priorityBadge.textContent = `${this.priorityLabel(task.priority)} priority`;
+            badges.appendChild(priorityBadge);
+
+            if (task.due_date) {
+                const dueBadge = document.createElement("span");
+                dueBadge.className = "badge badge-neutral";
+                dueBadge.textContent = `Due ${this.formattedDueDate(task.due_date)}`;
+                badges.appendChild(dueBadge);
+            }
+            card.appendChild(badges);
+
+            const meta = document.createElement("div");
+            meta.className = "meta";
+            meta.textContent = task.assignee_username
+                ? `Assignee: ${task.assignee_username}`
+                : "Unassigned";
+            card.appendChild(meta);
 
             const actions = document.createElement("div");
             actions.className = "actions";
@@ -356,12 +433,13 @@ class WorkspaceApp {
                 if (status === task.status) return;
                 const button = document.createElement("button");
                 button.className = "secondary-btn";
-                button.textContent = status.replace("_", " ");
+                button.textContent = this.statusLabel(status);
                 button.addEventListener("click", () => this.moveTask(task.id, status));
                 actions.appendChild(button);
             });
             card.appendChild(actions);
-            columns[task.status].appendChild(card);
+            const column = columns[task.status] || columns.todo;
+            column.appendChild(card);
         });
 
         Object.entries(columns).forEach(([, el]) => {

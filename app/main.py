@@ -346,7 +346,14 @@ async def create_project(payload: ProjectCreatePayload, principal: dict = Depend
 
 
 @route_aliases(
-    ["/projects/{project_id}/tasks", "/api/projects/{project_id}/tasks", "/api/v1/projects/{project_id}/tasks"],
+    [
+        "/projects/{project_id}/tasks",
+        "/projects/{project_id}/task",
+        "/api/projects/{project_id}/tasks",
+        "/api/projects/{project_id}/task",
+        "/api/v1/projects/{project_id}/tasks",
+        "/api/v1/projects/{project_id}/task",
+    ],
     methods=["GET"],
     tags=["work"],
 )
@@ -359,7 +366,14 @@ async def list_project_tasks(project_id: int, principal: dict = Depends(get_curr
 
 
 @route_aliases(
-    ["/projects/{project_id}/tasks", "/api/projects/{project_id}/tasks", "/api/v1/projects/{project_id}/tasks"],
+    [
+        "/projects/{project_id}/tasks",
+        "/projects/{project_id}/task",
+        "/api/projects/{project_id}/tasks",
+        "/api/projects/{project_id}/task",
+        "/api/v1/projects/{project_id}/tasks",
+        "/api/v1/projects/{project_id}/task",
+    ],
     methods=["POST"],
     tags=["work"],
 )
@@ -396,7 +410,18 @@ async def create_project_task(
     return {"success": True, "task_id": result["task_id"]}
 
 
-@route_aliases(["/tasks/{task_id}", "/api/tasks/{task_id}", "/api/v1/tasks/{task_id}"], methods=["PATCH"], tags=["work"])
+@route_aliases(
+    [
+        "/tasks/{task_id}",
+        "/task/{task_id}",
+        "/api/tasks/{task_id}",
+        "/api/task/{task_id}",
+        "/api/v1/tasks/{task_id}",
+        "/api/v1/task/{task_id}",
+    ],
+    methods=["PATCH"],
+    tags=["work"],
+)
 async def update_task(task_id: int, payload: TaskUpdatePayload, principal: dict = Depends(get_current_principal)) -> dict:
     task = db.get_task(task_id)
     if not task.get("success"):

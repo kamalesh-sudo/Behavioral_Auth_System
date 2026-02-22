@@ -106,8 +106,9 @@ body {
     padding: 12px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
     display: grid;
-    grid-template-columns: 1fr 220px;
+    grid-template-columns: 1fr repeat(3, minmax(140px, auto));
     gap: 10px;
+    align-items: center;
 }
 
 .task-form-grid {
@@ -171,6 +172,46 @@ textarea {
     border-radius: 8px;
     padding: 10px;
     background: #fafafa;
+}
+
+.task-description {
+    margin-top: 6px;
+}
+
+.task-badges {
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.badge-high {
+    color: #991b1b;
+    background: #fee2e2;
+}
+
+.badge-medium {
+    color: #9a3412;
+    background: #ffedd5;
+}
+
+.badge-low {
+    color: #065f46;
+    background: #d1fae5;
+}
+
+.badge-neutral {
+    color: #334155;
+    background: #e2e8f0;
 }
 
 .task-card .meta {
@@ -245,7 +286,7 @@ textarea {
         grid-template-columns: 1fr 1fr;
     }
     .task-controls {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr;
     }
     .task-form-grid {
         grid-template-columns: 1fr 1fr;
@@ -253,6 +294,9 @@ textarea {
 }
 
 @media (max-width: 640px) {
+    .task-controls {
+        grid-template-columns: 1fr;
+    }
     .insights {
         grid-template-columns: 1fr;
     }
