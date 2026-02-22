@@ -38,8 +38,12 @@ class BehavioralAnalyzer:
         self.user_risk_ema = {}
         self.min_keystroke_events = 6
         self.min_mouse_events = 6
+        self.min_total_events = 12
+        self.min_interaction_window_ms = 1200
         self.profile_train_min_samples = 8
         self.profile_history_max = 80
+        self.drift_window_size = 6
+        self.user_context_history = defaultdict(lambda: defaultdict(int))
         self.last_explanations = {}
     
     def create_user_profile(self, user_id, behavioral_data):
@@ -209,7 +213,7 @@ class BehavioralAnalyzer:
         
         return windows
     
-    def analyze_real_time(self, keystroke_data, mouse_data, user_id=None):
+    def analyze_real_time(self, keystroke_data, mouse_data, user_id=None, context=None):
         """Analyze behavioral data in real-time"""
         behavioral_data = {
             'keystrokeData': keystroke_data,
@@ -238,8 +242,9 @@ class BehavioralAnalyzer:
         
         # If user-specific model exists, use it
         if user_id and user_id in self.user_profiles:
-            risk, explanation = self.analyze_with_user_model(features, user_id)
+            risk, explanation = self.analyze_with_user_model(features, user_id, context=context)
             self._append_user_history(user_id, features)
+            self._update_context_history(user_id, context)
             self.last_explanations[user_id] = explanation
             return self._smoothed_risk(user_id, risk)
         
@@ -247,16 +252,17 @@ class BehavioralAnalyzer:
         risk = self.analyze_with_global_model(features)
         if user_id:
             self._append_user_history(user_id, features)
+            self._update_context_history(user_id, context)
             if user_id not in self.user_profiles:
                 self.create_user_profile(user_id, behavioral_data)
             self.last_explanations[user_id] = {
                 "reason": "global_model",
-                "components": {"global": float(risk)},
+                "components": {"global": float(risk), "context": float(self._context_novelty_risk(user_id, context))},
                 "top_deviations": [],
             }
         return self._smoothed_risk(user_id, risk)
     
-    def analyze_with_user_model(self, features, user_id):
+    def analyze_with_user_model(self, features, user_id, context=None):
         """Analyze using user-specific model"""
         user_profile = self.user_profiles[user_id]
         keys = user_profile.get("feature_keys") or sorted(features.keys())
@@ -271,15 +277,25 @@ class BehavioralAnalyzer:
                 model_risk = 0.5
 
         distance_risk, top_deviations = self._profile_distance_risk(user_id, features, keys)
+        drift_risk = self._temporal_drift_risk(user_id, features, keys)
+        context_risk = self._context_novelty_risk(user_id, context)
         global_risk = self.analyze_with_global_model(features)
-        # Stronger user-model weighting, with global model as secondary.
-        combined = (0.50 * model_risk) + (0.35 * distance_risk) + (0.15 * global_risk)
+        # Emphasize personal baseline + model while adding drift/context stability checks.
+        combined = (
+            (0.38 * model_risk)
+            + (0.27 * distance_risk)
+            + (0.20 * drift_risk)
+            + (0.10 * global_risk)
+            + (0.05 * context_risk)
+        )
         explanation = {
             "reason": "user_model",
             "components": {
                 "model": float(model_risk),
                 "distance": float(distance_risk),
+                "drift": float(drift_risk),
                 "global": float(global_risk),
+                "context": float(context_risk),
             },
             "top_deviations": top_deviations,
         }
@@ -351,7 +367,29 @@ class BehavioralAnalyzer:
     def _has_signal(self, behavioral_data: dict) -> bool:
         keystrokes = behavioral_data.get("keystrokeData", []) or []
         mouse = behavioral_data.get("mouseData", []) or []
-        return len(keystrokes) >= self.min_keystroke_events or len(mouse) >= self.min_mouse_events
+        enough_events = (
+            len(keystrokes) >= self.min_keystroke_events
+            or len(mouse) >= self.min_mouse_events
+            or (len(keystrokes) + len(mouse)) >= self.min_total_events
+        )
+        if not enough_events:
+            return False
+        return self._interaction_window_ms(keystrokes, mouse) >= self.min_interaction_window_ms
+
+    @staticmethod
+    def _interaction_window_ms(keystrokes: list[dict], mouse: list[dict]) -> float:
+        timestamps = []
+        for event in keystrokes:
+            ts = event.get("timestamp")
+            if ts is not None:
+                timestamps.append(float(ts))
+        for event in mouse:
+            ts = event.get("timestamp")
+            if ts is not None:
+                timestamps.append(float(ts))
+        if len(timestamps) < 2:
+            return 0.0
+        return max(timestamps) - min(timestamps)
 
     def _append_user_history(self, user_id: str, features: dict) -> None:
         history = self.user_feature_history[user_id]
@@ -394,6 +432,52 @@ class BehavioralAnalyzer:
             for i in top_idx
         ]
         return float(np.clip(z_score / 4.0, 0.0, 1.0)), top_deviations
+
+    def _temporal_drift_risk(self, user_id: str, features: dict, keys: list[str]) -> float:
+        history = self.user_feature_history[user_id]
+        window = int(self.drift_window_size)
+        if len(history) < max(2 * window, 6):
+            return 0.2
+        recent = history[-window:]
+        previous = history[-(2 * window) : -window]
+        recent_matrix = np.array([[sample.get(k, 0.0) for k in keys] for sample in recent], dtype=float)
+        previous_matrix = np.array([[sample.get(k, 0.0) for k in keys] for sample in previous], dtype=float)
+        recent_mean = np.mean(recent_matrix, axis=0)
+        previous_mean = np.mean(previous_matrix, axis=0)
+        reference_std = np.std(previous_matrix, axis=0) + 1e-6
+        drift_z = np.abs((recent_mean - previous_mean) / reference_std)
+        return float(np.clip(np.median(drift_z) / 4.0, 0.0, 1.0))
+
+    def _context_novelty_risk(self, user_id: str, context: dict | None) -> float:
+        if not context:
+            return 0.0
+        risk_values = []
+        for key in ("device_class", "session_type"):
+            value = context.get(key)
+            if not value:
+                continue
+            bucket_key = f"{key}:{str(value).lower()}"
+            counts = self.user_context_history[user_id]
+            total_for_key = sum(v for k, v in counts.items() if k.startswith(f"{key}:"))
+            seen = counts.get(bucket_key, 0)
+            if total_for_key < 3:
+                risk_values.append(0.15)
+            elif seen == 0:
+                risk_values.append(0.65)
+            else:
+                risk_values.append(float(np.clip(1.0 - (seen / max(1, total_for_key)), 0.0, 0.35)))
+        if not risk_values:
+            return 0.0
+        return float(np.clip(np.mean(risk_values), 0.0, 1.0))
+
+    def _update_context_history(self, user_id: str, context: dict | None) -> None:
+        if not context:
+            return
+        for key in ("device_class", "session_type"):
+            value = context.get(key)
+            if value:
+                bucket_key = f"{key}:{str(value).lower()}"
+                self.user_context_history[user_id][bucket_key] += 1
 
     def _smoothed_risk(self, user_id: str | None, risk: float) -> float:
         risk = float(np.clip(risk, 0.0, 1.0))
