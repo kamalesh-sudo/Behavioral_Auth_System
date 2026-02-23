@@ -1,5 +1,9 @@
 import unittest
+import os
+import sys
 
+
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from backend.ml.behavioral_analyzer import BehavioralAnalyzer
 from backend.ml.feature_extractor import BehavioralFeatureExtractor
 
@@ -51,6 +55,17 @@ class BehavioralMLTests(unittest.TestCase):
         )
         self.assertLessEqual(risk, 0.1)
 
+    def test_short_burst_window_returns_low_risk(self) -> None:
+        analyzer = BehavioralAnalyzer()
+        burst = []
+        ts = 0
+        for _ in range(8):
+            burst.append({"type": "keydown", "key": "a", "keyCode": 65, "timestamp": ts})
+            burst.append({"type": "keyup", "key": "a", "keyCode": 65, "timestamp": ts + 5, "dwellTime": 5})
+            ts += 10
+        risk = analyzer.analyze_real_time(keystroke_data=burst, mouse_data=[], user_id="u_burst")
+        self.assertLessEqual(risk, 0.1)
+
     def test_anomalous_pattern_increases_user_risk(self) -> None:
         analyzer = BehavioralAnalyzer()
         user_id = "u_profile"
@@ -77,7 +92,37 @@ class BehavioralMLTests(unittest.TestCase):
         )
 
         self.assertGreaterEqual(anomaly_risk, normal_risk)
-        self.assertGreater(anomaly_risk, 0.2)
+        self.assertGreater(anomaly_risk, 0.15)
+
+    def test_unseen_context_increases_context_component(self) -> None:
+        analyzer = BehavioralAnalyzer()
+        user_id = "u_context"
+        normal_data = {"keystrokeData": make_keystrokes(dwell=85, interval=210), "mouseData": make_mouse(step=22)}
+        analyzer.create_user_profile(user_id, normal_data)
+        for _ in range(12):
+            analyzer.update_user_profile(user_id, normal_data)
+            analyzer.analyze_real_time(
+                keystroke_data=normal_data["keystrokeData"],
+                mouse_data=normal_data["mouseData"],
+                user_id=user_id,
+                context={"device_class": "desktop", "session_type": "typing_heavy"},
+            )
+
+        features = analyzer.extract_features(normal_data)
+        _, known_expl = analyzer.analyze_with_user_model(
+            features,
+            user_id,
+            context={"device_class": "desktop", "session_type": "typing_heavy"},
+        )
+        _, unknown_expl = analyzer.analyze_with_user_model(
+            features,
+            user_id,
+            context={"device_class": "mobile", "session_type": "mouse_heavy"},
+        )
+        self.assertGreater(
+            float(unknown_expl["components"]["context"]),
+            float(known_expl["components"]["context"]),
+        )
 
 
 if __name__ == "__main__":

@@ -129,6 +129,7 @@ class RealtimeBehaviorService:
         session_id = data.get("sessionId")
         keystroke_data = data.get("keystrokeData", [])
         mouse_data = data.get("mouseData", [])
+        context = data.get("context") if isinstance(data.get("context"), dict) else None
         self._record_event(
             "behavioral_received",
             username=username,
@@ -153,7 +154,7 @@ class RealtimeBehaviorService:
             )
             return
 
-        risk_score = self.analyzer.analyze_real_time(keystroke_data, mouse_data, username)
+        risk_score = self.analyzer.analyze_real_time(keystroke_data, mouse_data, username, context=context)
         risk_explanation = self.analyzer.get_last_explanation(username)
         self._record_event(
             "behavioral_scored",
