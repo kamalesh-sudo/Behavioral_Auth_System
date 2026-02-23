@@ -1,19 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+python-multipart
+websockets
 numpy
 pandas
-scikit-learn
-tensorflow
-torch
 scipy
-matplotlib
-seaborn
-jupyter
-flask
-flask-cors
-flask-socketio
-cryptography
-pycryptodome
-optuna
-mlflow
-psycopg2-binary
-redis
-websockets
+scikit-learn
+# TensorFlow wheels are unavailable on newer Python versions (e.g. 3.14).
+tensorflow; python_version < "3.13"
+joblib
+psycopg[binary]

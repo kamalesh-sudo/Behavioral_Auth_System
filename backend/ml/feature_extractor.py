@@ -1,179 +1,253 @@
-# feature_extractor.py
 import numpy as np
-from scipy import stats
-from scipy.signal import find_peaks
-import pandas as pd
+
 
 class BehavioralFeatureExtractor:
     def __init__(self):
         self.keystroke_features = {}
         self.mouse_features = {}
-    
+
+    @staticmethod
+    def _safe_stats(values: list[float], prefix: str) -> dict:
+        if not values:
+            return {
+                f"{prefix}_mean": 0.0,
+                f"{prefix}_std": 0.0,
+                f"{prefix}_median": 0.0,
+                f"{prefix}_p95": 0.0,
+            }
+        arr = np.asarray(values, dtype=float)
+        arr = arr[np.isfinite(arr)]
+        if arr.size == 0:
+            return {
+                f"{prefix}_mean": 0.0,
+                f"{prefix}_std": 0.0,
+                f"{prefix}_median": 0.0,
+                f"{prefix}_p95": 0.0,
+            }
+        return {
+            f"{prefix}_mean": float(np.mean(arr)),
+            f"{prefix}_std": float(np.std(arr)),
+            f"{prefix}_median": float(np.median(arr)),
+            f"{prefix}_p95": float(np.percentile(arr, 95)),
+        }
+
     def extract_keystroke_features(self, keystroke_data):
-        """Extract features from keystroke dynamics"""
-        features = {}
-        
-        # Convert to DataFrame for easier processing
-        df = pd.DataFrame(keystroke_data)
-        
-        # Filter for keyup events with dwell time
-        keyup_events = df[df['type'] == 'keyup'].copy()
-        
-        if len(keyup_events) < 5:
+        """Extract robust keystroke timing and typing-consistency features."""
+        if not keystroke_data:
             return self.get_default_keystroke_features()
-        
-        # Dwell time features
-        dwell_times = keyup_events['dwellTime'].values
-        features['dwell_mean'] = np.mean(dwell_times)
-        features['dwell_std'] = np.std(dwell_times)
-        features['dwell_median'] = np.median(dwell_times)
-        features['dwell_skew'] = stats.skew(dwell_times)
-        features['dwell_kurtosis'] = stats.kurtosis(dwell_times)
-        
-        # Flight time features (time between keystrokes)
-        timestamps = keyup_events['timestamp'].values
-        flight_times = np.diff(timestamps)
-        
-        features['flight_mean'] = np.mean(flight_times)
-        features['flight_std'] = np.std(flight_times)
-        features['flight_median'] = np.median(flight_times)
-        
-        # Typing rhythm features
-        features['typing_speed'] = len(keyup_events) / (timestamps[-1] - timestamps[0]) * 1000
-        
-        # Key frequency analysis
-        key_counts = keyup_events['key'].value_counts()
-        features['unique_keys'] = len(key_counts)
-        features['most_frequent_key_ratio'] = key_counts.iloc[0] / len(keyup_events) if len(key_counts) > 0 else 0
-        
-        # Digraph analysis (two-key combinations)
-        digraphs = []
-        for i in range(len(keyup_events) - 1):
-            digraph = keyup_events.iloc[i]['key'] + keyup_events.iloc[i+1]['key']
-            digraphs.append(digraph)
-        
-        if digraphs:
-            unique_digraphs = len(set(digraphs))
-            features['digraph_diversity'] = unique_digraphs / len(digraphs)
-        else:
-            features['digraph_diversity'] = 0
-        
-        return features
-    
-    def extract_mouse_features(self, mouse_data):
-        """Extract features from mouse dynamics"""
+
+        ordered = sorted(
+            [e for e in keystroke_data if "timestamp" in e],
+            key=lambda e: e.get("timestamp", 0),
+        )
+        if len(ordered) < 6:
+            return self.get_default_keystroke_features()
+
+        keydown_events = [e for e in ordered if e.get("type") == "keydown"]
+        keyup_events = [e for e in ordered if e.get("type") == "keyup"]
+        if len(keydown_events) < 3 or len(keyup_events) < 3:
+            return self.get_default_keystroke_features()
+
+        # Match keydown -> keyup by key and order to calculate dwell robustly.
+        open_presses: dict[str, list[float]] = {}
+        dwell_times: list[float] = []
+        for event in ordered:
+            event_type = event.get("type")
+            key = str(event.get("key", ""))
+            ts = float(event.get("timestamp", 0))
+            if event_type == "keydown":
+                open_presses.setdefault(key, []).append(ts)
+            elif event_type == "keyup":
+                if "dwellTime" in event and np.isfinite(event.get("dwellTime")):
+                    dwell = float(event["dwellTime"])
+                else:
+                    queue = open_presses.get(key) or []
+                    if not queue:
+                        continue
+                    start = queue.pop(0)
+                    dwell = ts - start
+                if 0 <= dwell <= 3000:
+                    dwell_times.append(dwell)
+
+        down_ts = [float(e.get("timestamp", 0)) for e in keydown_events]
+        up_ts = [float(e.get("timestamp", 0)) for e in keyup_events]
+        down_ts.sort()
+        up_ts.sort()
+
+        flight_times = []
+        ikl_latencies = []
+        for i in range(min(len(down_ts) - 1, len(up_ts))):
+            flight = down_ts[i + 1] - up_ts[i]
+            if -500 <= flight <= 3000:
+                flight_times.append(flight)
+            ikl = down_ts[i + 1] - down_ts[i]
+            if 0 <= ikl <= 3000:
+                ikl_latencies.append(ikl)
+
+        total_ms = max(1.0, float(ordered[-1]["timestamp"]) - float(ordered[0]["timestamp"]))
+        total_s = total_ms / 1000.0
+        key_count = max(1, len(keydown_events))
+
         features = {}
-        
+        features.update(self._safe_stats(dwell_times, "dwell"))
+        features.update(self._safe_stats(flight_times, "flight"))
+        features.update(self._safe_stats(ikl_latencies, "ikl"))
+        features["typing_speed"] = float(key_count / total_s)
+        features["keys_count"] = float(key_count)
+        features["active_duration_ms"] = float(total_ms)
+        features["unique_keys"] = float(len({str(e.get("key", "")) for e in keydown_events}))
+
+        corrections = sum(1 for e in keydown_events if str(e.get("key", "")) in {"Backspace", "Delete"})
+        features["backspace_frequency"] = float(corrections / key_count)
+        features["error_rate"] = float(corrections / key_count)
+
+        # Rhythmic variability and pause behavior.
+        pauses = [v for v in ikl_latencies if v > 700]
+        features["pause_ratio"] = float(len(pauses) / max(1, len(ikl_latencies)))
+        features["rhythm_consistency"] = float(np.std(ikl_latencies)) if ikl_latencies else 0.0
+
+        # Dwell outlier rate via robust MAD.
+        if dwell_times:
+            dwell_arr = np.asarray(dwell_times, dtype=float)
+            med = np.median(dwell_arr)
+            mad = np.median(np.abs(dwell_arr - med)) + 1e-6
+            robust_z = np.abs(dwell_arr - med) / (1.4826 * mad)
+            features["dwell_outlier_rate"] = float(np.mean(robust_z > 3.5))
+        else:
+            features["dwell_outlier_rate"] = 0.0
+
+        return features
+
+    def get_feature_vector(self, keystroke_data, mouse_data=None):
+        k_features = self.extract_keystroke_features(keystroke_data)
+        m_features = self.extract_mouse_features(mouse_data or [])
+        combined = {**k_features, **m_features}
+        keys = sorted(combined.keys())
+        vector = [combined[k] for k in keys]
+        return np.array(vector, dtype=float), keys
+
+    def extract_mouse_features(self, mouse_data):
+        """Extract movement smoothness, speed, acceleration and click dynamics."""
         if not mouse_data:
             return self.get_default_mouse_features()
-        
-        df = pd.DataFrame(mouse_data)
-        
-        if len(df) < 5:
+
+        ordered = sorted(
+            [e for e in mouse_data if "timestamp" in e],
+            key=lambda e: e.get("timestamp", 0),
+        )
+        if len(ordered) < 5:
             return self.get_default_mouse_features()
-        
-        # Mouse movement features
-        move_events = df[df['type'] == 'mousemove'].copy()
-        
+
+        move_events = [e for e in ordered if e.get("type") == "mousemove" and "x" in e and "y" in e]
+        click_events = [e for e in ordered if e.get("type") in {"click", "mousedown"}]
+
+        features = {}
+        velocities = []
+        accelerations = []
+        direction_angles = []
+        path_distance = 0.0
+
         if len(move_events) > 1:
-            # Calculate velocities
-            move_events['velocity_x'] = np.gradient(move_events['x'])
-            move_events['velocity_y'] = np.gradient(move_events['y'])
-            move_events['velocity_magnitude'] = np.sqrt(
-                move_events['velocity_x']**2 + move_events['velocity_y']**2
-            )
-            
-            # Velocity features
-            features['velocity_mean'] = np.mean(move_events['velocity_magnitude'])
-            features['velocity_std'] = np.std(move_events['velocity_magnitude'])
-            features['velocity_max'] = np.max(move_events['velocity_magnitude'])
-            
-            # Acceleration features
-            accelerations = np.gradient(move_events['velocity_magnitude'])
-            features['acceleration_mean'] = np.mean(accelerations)
-            features['acceleration_std'] = np.std(accelerations)
-            
-            # Movement patterns
-            features['movement_efficiency'] = self.calculate_movement_efficiency(move_events)
-            features['direction_changes'] = self.count_direction_changes(move_events)
-            
+            prev_v = None
+            for i in range(1, len(move_events)):
+                prev = move_events[i - 1]
+                cur = move_events[i]
+                dt = float(cur["timestamp"]) - float(prev["timestamp"])
+                if dt <= 0:
+                    continue
+                dx = float(cur["x"]) - float(prev["x"])
+                dy = float(cur["y"]) - float(prev["y"])
+                dist = np.hypot(dx, dy)
+                path_distance += dist
+                v = dist / dt
+                if np.isfinite(v):
+                    velocities.append(v)
+                    direction_angles.append(float(np.arctan2(dy, dx)))
+                if prev_v is not None:
+                    a = (v - prev_v) / dt
+                    if np.isfinite(a):
+                        accelerations.append(a)
+                prev_v = v
+
+            start = move_events[0]
+            end = move_events[-1]
+            straight_distance = float(np.hypot(float(end["x"]) - float(start["x"]), float(end["y"]) - float(start["y"])))
+            movement_eff = straight_distance / path_distance if path_distance > 0 else 1.0
+            features["movement_efficiency"] = float(np.clip(movement_eff, 0.0, 1.0))
+
+            direction_changes = 0
+            for i in range(1, len(direction_angles)):
+                delta = abs(direction_angles[i] - direction_angles[i - 1])
+                if delta > np.pi:
+                    delta = 2 * np.pi - delta
+                if delta > (np.pi / 2):
+                    direction_changes += 1
+            features["direction_changes"] = float(direction_changes)
         else:
-            features.update(self.get_default_mouse_features())
-        
-        # Click features
-        click_events = df[df['type'] == 'click'].copy()
-        
+            features["movement_efficiency"] = 0.0
+            features["direction_changes"] = 0.0
+
+        features.update(self._safe_stats(velocities, "velocity"))
+        features.update(self._safe_stats(accelerations, "acceleration"))
+
         if len(click_events) > 1:
-            click_intervals = np.diff(click_events['timestamp'])
-            features['click_interval_mean'] = np.mean(click_intervals)
-            features['click_interval_std'] = np.std(click_intervals)
-            features['click_rate'] = len(click_events) / (df['timestamp'].iloc[-1] - df['timestamp'].iloc[0]) * 1000
+            click_ts = [float(e["timestamp"]) for e in click_events]
+            click_ts.sort()
+            intervals = [click_ts[i] - click_ts[i - 1] for i in range(1, len(click_ts)) if click_ts[i] >= click_ts[i - 1]]
+            features.update(self._safe_stats(intervals, "click_interval"))
+            duration_ms = max(1.0, float(ordered[-1]["timestamp"]) - float(ordered[0]["timestamp"]))
+            features["click_rate"] = float(len(click_events) * 1000.0 / duration_ms)
         else:
-            features['click_interval_mean'] = 0
-            features['click_interval_std'] = 0
-            features['click_rate'] = 0
-        
+            features["click_interval_mean"] = 0.0
+            features["click_interval_std"] = 0.0
+            features["click_interval_median"] = 0.0
+            features["click_interval_p95"] = 0.0
+            features["click_rate"] = 0.0
+
+        features["mouse_events_count"] = float(len(ordered))
         return features
-    
-    def calculate_movement_efficiency(self, move_events):
-        """Calculate how efficiently the mouse moves (straight line vs actual path)"""
-        if len(move_events) < 2:
-            return 0
-        
-        start_x, start_y = move_events.iloc[0]['x'], move_events.iloc[0]['y']
-        end_x, end_y = move_events.iloc[-1]['x'], move_events.iloc[-1]['y']
-        
-        # Straight line distance
-        straight_distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
-        
-        # Actual path distance
-        actual_distance = 0
-        for i in range(1, len(move_events)):
-            dx = move_events.iloc[i]['x'] - move_events.iloc[i-1]['x']
-            dy = move_events.iloc[i]['y'] - move_events.iloc[i-1]['y']
-            actual_distance += np.sqrt(dx**2 + dy**2)
-        
-        if actual_distance == 0:
-            return 0
-        
-        return straight_distance / actual_distance
-    
-    def count_direction_changes(self, move_events):
-        """Count how many times the mouse changes direction"""
-        if len(move_events) < 3:
-            return 0
-        
-        direction_changes = 0
-        prev_dx = move_events.iloc[1]['x'] - move_events.iloc[0]['x']
-        prev_dy = move_events.iloc[1]['y'] - move_events.iloc[0]['y']
-        
-        for i in range(2, len(move_events)):
-            dx = move_events.iloc[i]['x'] - move_events.iloc[i-1]['x']
-            dy = move_events.iloc[i]['y'] - move_events.iloc[i-1]['y']
-            
-            # Check if direction changed significantly
-            if abs(dx - prev_dx) > 5 or abs(dy - prev_dy) > 5:
-                direction_changes += 1
-            
-            prev_dx, prev_dy = dx, dy
-        
-        return direction_changes
-    
+
     def get_default_keystroke_features(self):
-        """Return default keystroke features when insufficient data"""
         return {
-            'dwell_mean': 0, 'dwell_std': 0, 'dwell_median': 0,
-            'dwell_skew': 0, 'dwell_kurtosis': 0,
-            'flight_mean': 0, 'flight_std': 0, 'flight_median': 0,
-            'typing_speed': 0, 'unique_keys': 0, 'most_frequent_key_ratio': 0,
-            'digraph_diversity': 0
+            "dwell_mean": 0.0,
+            "dwell_std": 0.0,
+            "dwell_median": 0.0,
+            "dwell_p95": 0.0,
+            "flight_mean": 0.0,
+            "flight_std": 0.0,
+            "flight_median": 0.0,
+            "flight_p95": 0.0,
+            "ikl_mean": 0.0,
+            "ikl_std": 0.0,
+            "ikl_median": 0.0,
+            "ikl_p95": 0.0,
+            "typing_speed": 0.0,
+            "keys_count": 0.0,
+            "active_duration_ms": 0.0,
+            "unique_keys": 0.0,
+            "backspace_frequency": 0.0,
+            "error_rate": 0.0,
+            "pause_ratio": 0.0,
+            "rhythm_consistency": 0.0,
+            "dwell_outlier_rate": 0.0,
         }
-    
+
     def get_default_mouse_features(self):
-        """Return default mouse features when insufficient data"""
         return {
-            'velocity_mean': 0, 'velocity_std': 0, 'velocity_max': 0,
-            'acceleration_mean': 0, 'acceleration_std': 0,
-            'movement_efficiency': 0, 'direction_changes': 0,
-            'click_interval_mean': 0, 'click_interval_std': 0, 'click_rate': 0
+            "velocity_mean": 0.0,
+            "velocity_std": 0.0,
+            "velocity_median": 0.0,
+            "velocity_p95": 0.0,
+            "acceleration_mean": 0.0,
+            "acceleration_std": 0.0,
+            "acceleration_median": 0.0,
+            "acceleration_p95": 0.0,
+            "movement_efficiency": 0.0,
+            "direction_changes": 0.0,
+            "click_interval_mean": 0.0,
+            "click_interval_std": 0.0,
+            "click_interval_median": 0.0,
+            "click_interval_p95": 0.0,
+            "click_rate": 0.0,
+            "mouse_events_count": 0.0,
         }

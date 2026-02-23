@@ -1,176 +1,104 @@
-# Behavioral Authentication System
+# Freelancer Workspace + Behavioral Security
 
-## About the Project
-
-**Developed by:** Kamalesh S
-**Company:** Elevate Labs
-**Role:** Cybersecurity Intern (Project Phase)
-
-
-## Project Overview
+Python-first freelancer task manager with continuous behavioral anomaly monitoring:
+- FastAPI app for REST APIs + static frontend + websocket realtime risk scoring
 
 ## Project Structure
 
-```
-behavioral-auth/
-├── backend/
-│   ├── api/
-│   ├── auth/
-│   ├── database/
-│   ├── ml/
-│   │   ├── behavioral_analyzer.py
-│   │   └── feature_extractor.py
-│   ├── models/
-│   ├── utils/
-│   ├── requirements.txt
-│   └── websocket_server.py
-├── data/
-├── docs/
-├── frontend/
-│   ├── collector/
-│   │   └── behavioral-collector.js
-│   ├── dashboard/
-│   │   ├── dashboard.js
-│   │   ├── index.html
-│   │   └── style.css
-│   ├── extension/
-│   ├── node_modules/
-│   ├── package.json
-│   ├── package-lock.json
-│   └── server.js
-├── models/
-├── tests/
-├── venv/
-├── venv-3.9/
-├── PROJECT_STATUS.md
-└── README.md
+```text
+app/
+  config.py        # Environment settings
+  database.py      # SQLite/PostgreSQL auth/profile storage
+  schemas.py       # Pydantic request/response models
+  main.py          # FastAPI routes + static mounts
+backend/
+  websocket_server.py  # legacy standalone realtime server (optional)
+  ml/
+  models/
+frontend/
+  login/
+  dashboard/
+tests/
+  smoke_test.py
 ```
 
-
-
-This project implements a real-time Behavioral Authentication System designed to enhance security by continuously analyzing user keystroke and mouse dynamics. Unlike traditional authentication methods that rely solely on static credentials, this system builds a unique behavioral profile for each user and detects anomalies that might indicate unauthorized access or malicious activity.
-
-The system comprises a Python-based backend for machine learning analysis and a JavaScript-based frontend for data collection and visualization.
-
-## Features
-
-*   **Real-time Behavioral Data Collection:** Captures keystroke dynamics (e.g., dwell time, flight time) and mouse dynamics (e.g., velocity, acceleration, movement patterns).
-*   **Machine Learning-driven Analysis:** Utilizes `IsolationForest` for user-specific anomaly detection and `RandomForestClassifier` and `LSTM` for global behavioral pattern recognition.
-*   **Dynamic Risk Scoring:** Assigns a real-time risk score based on deviations from established behavioral profiles.
-*   **Alerting Mechanism:** Triggers alerts for high-risk behavioral patterns, suggesting additional authentication steps.
-*   **User Profile Management:** Creates and updates individual user behavioral profiles.
-*   **Web-based Dashboard:** Provides a visual interface to monitor real-time risk scores and alerts.
-
-## Technologies Used
-
-### Backend (Python)
-
-*   **Flask:** Web framework for API endpoints.
-*   **Websockets:** For real-time communication between frontend and backend.
-*   **Scikit-learn:** For traditional machine learning models (e.g., IsolationForest, RandomForestClassifier).
-*   **TensorFlow/Keras:** For deep learning models (LSTM) to analyze temporal behavioral sequences.
-*   **NumPy & Pandas:** For data manipulation and numerical operations.
-*   **SciPy:** For scientific computing and statistical analysis.
-
-### Frontend (JavaScript/HTML/CSS)
-
-*   **Node.js/Express:** To serve the frontend application.
-*   **WebSockets API:** For real-time communication with the backend.
-*   **Vanilla JavaScript:** For behavioral data collection and dashboard interactivity.
-
-## Setup and Installation
-
-Follow these steps to set up and run the project locally.
-
-### 1. Clone the Repository
+## Start
 
 ```bash
-git clone https://github.com/iharishragav/Behavioral_Auth_System.git
-cd behavioral-auth
-```
-
-### 2. Backend Setup (Python)
-
-It is highly recommended to use a virtual environment.
-
-```bash
-# Create a virtual environment (if you don't have one)
-python3 -m venv venv-3.9
-
-# Activate the virtual environment
-source venv-3.9/bin/activate
-
-# Navigate to the backend directory
 cd backend
-
-# Install Python dependencies
 pip install -r requirements.txt
-
-# Return to the project root
 cd ..
+cp .env.example .env
+uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
 ```
 
-### 3. Frontend Setup (Node.js)
+Set `JWT_SECRET_KEY` (or `AUTH_TOKEN` as fallback) in `.env` before starting services.
+
+Use PostgreSQL by setting:
 
 ```bash
-# Navigate to the frontend directory
-cd frontend
-
-# Install Node.js dependencies
-npm install
-
-# Return to the project root
-cd ..
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/behavioral_auth
 ```
 
-### 4. Running the Application
+If `DATABASE_URL` is empty, the app uses SQLite via `DB_PATH`.
 
-#### Start the Backend Server
+Optional websocket server (recommended for behavioral scoring):
 
-Open a new terminal, activate the Python virtual environment, and start the WebSocket server:
+No separate process needed. WebSocket is served by FastAPI at `/ws/behavioral`.
+
+## Main Endpoints
+
+- `GET /health`
+- `POST /api/register`
+- `POST /api/start-session`
+- `POST /api/login`
+- `GET /api/projects`
+- `POST /api/projects`
+- `GET /api/projects/{project_id}/tasks`
+- `POST /api/projects/{project_id}/tasks`
+- `PATCH /api/tasks/{task_id}`
+- `GET /api/security-events` (analyst/admin)
+- `GET /api/realtime-monitor` (analyst/admin)
+- `POST /api/admin/users/{username}/role` (admin)
+
+Frontend pages are served at `http://localhost:5000`.
+
+JWT tokens are now returned by `/api/start-session` and `/api/login`, and the frontend stores them for websocket auth automatically.
+
+Role model:
+- `user`: standard account
+- `analyst`: can read security events + other user data
+- `admin`: full access including role changes
+
+## Watch Realtime Detection
+
+Run API with verbose logs:
 
 ```bash
-cd behavioral-auth/backend
-source venv-3.9/bin/activate
-python websocket_server.py
+uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload --log-level info
 ```
 
-Leave this terminal open as the backend server runs in the foreground.
+The realtime service emits log lines with prefix `realtime_event` for:
+- websocket connect/auth/disconnect
+- behavioral packet receipt + risk score
+- profile updates/training state
+- anomaly blocks/session terminations
 
-#### Start the Frontend Server
-
-Open another new terminal, navigate to the frontend directory, and start the Express server:
+You can also query monitor state (as `analyst` or `admin`):
 
 ```bash
-cd behavioral-auth/frontend
-npm start
+curl -s http://localhost:5000/api/realtime-monitor -H "Authorization: Bearer <TOKEN>" | jq
 ```
 
-## Usage
+## Auto-Train Global Model
 
-Once both the backend and frontend servers are running:
+The server can periodically train the global model from stored behavioral profiles.
+Configure in `.env`:
 
-1.  Open your web browser and navigate to `http://localhost:3000` to access the Behavioral Authentication Dashboard.
-2.  Interact with the page (move your mouse, type on your keyboard). The system will collect your behavioral data, send it to the backend for analysis, and update the real-time risk score on the dashboard.
-3.  Observe the console in your browser's developer tools for logs related to data collection and WebSocket communication.
+```bash
+GLOBAL_TRAIN_INTERVAL_SECONDS=300
+GLOBAL_TRAIN_MIN_SAMPLES=30
+GLOBAL_TRAIN_MAX_SAMPLES=5000
+```
 
-## Project Status and Future Enhancements
-
-This project is currently in active development.
-
-For detailed weekly updates on project progress, challenges, and next steps, please refer to the [Project Status Updates](PROJECT_STATUS.md) document.
-
-Key areas for future enhancements include:
-
-*   **Browser Extension:** Develop a browser extension to collect behavioral data across multiple websites.
-*   **User Management:** Implement robust user registration, login, and profile management.
-*   **Database Integration:** Integrate with a database (e.g., PostgreSQL, Redis) for persistent storage of user profiles and behavioral data.
-*   **Advanced ML Models:** Explore more sophisticated machine learning and deep learning architectures for improved accuracy and real-time performance.
-*   **Comprehensive Testing:** Develop a comprehensive suite of unit and integration tests.
-*   **Deployment:** Prepare the application for production deployment.
-
-## Contributing
-
-Contributions are welcome! Please feel free to fork the repository, create pull requests, or open issues for bugs and feature requests.
-
-
+Set `GLOBAL_TRAIN_INTERVAL_SECONDS=0` to disable.

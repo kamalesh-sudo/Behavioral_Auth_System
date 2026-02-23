@@ -6,6 +6,7 @@ __pycache__/
 *.egg-info/
 *.egg
 *.log
+uploads/
 
 # Virtual environments
 venv/
@@ -16,3 +17,6 @@ venv/
 # macOS metadata
 .DS_Store
 
+# Frontend artifacts
+frontend/node_modules/
+frontend/package-lock.json
