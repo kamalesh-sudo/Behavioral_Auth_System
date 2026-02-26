@@ -125,11 +125,27 @@ class RealtimeBehaviorService:
             self._record_event("ws_message_unknown", message_type=message_type)
 
     async def _handle_behavioral_data(self, websocket: WebSocket, data: dict) -> None:
-        username = data.get("userId")
+        username = data.get("userId") or self.connection_auth.get(websocket, {}).get("sub")
         session_id = data.get("sessionId")
         keystroke_data = data.get("keystrokeData", [])
         mouse_data = data.get("mouseData", [])
         context = data.get("context") if isinstance(data.get("context"), dict) else None
+        if not username or not session_id:
+            self._record_event(
+                "behavioral_rejected",
+                reason="missing_identity_or_session",
+                username=username,
+                session_id=session_id,
+            )
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": "Missing required fields: userId/sessionId",
+                    }
+                )
+            )
+            return
         self._record_event(
             "behavioral_received",
             username=username,
@@ -226,8 +242,24 @@ class RealtimeBehaviorService:
         await websocket.send_text(json.dumps(response))
 
     async def _handle_user_authentication(self, websocket: WebSocket, data: dict) -> None:
-        username = data.get("userId")
+        username = data.get("userId") or self.connection_auth.get(websocket, {}).get("sub")
         session_id = data.get("sessionId")
+        if not username or not session_id:
+            self._record_event(
+                "user_auth_rejected",
+                reason="missing_identity_or_session",
+                username=username,
+                session_id=session_id,
+            )
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": "Missing required fields: userId/sessionId",
+                    }
+                )
+            )
+            return
         self._record_event("user_auth_message", username=username, session_id=session_id)
 
         if self.db.is_user_blocked(username):
@@ -263,10 +295,26 @@ class RealtimeBehaviorService:
         await websocket.send_text(json.dumps({"type": "authentication_success", "userId": username}))
 
     async def _handle_feedback(self, websocket: WebSocket, data: dict) -> None:
-        username = data.get("userId")
+        username = data.get("userId") or self.connection_auth.get(websocket, {}).get("sub")
         session_id = data.get("sessionId")
         feedback = data.get("feedback")
         behavioral_data = data.get("behavioralData")
+        if not username or not session_id:
+            self._record_event(
+                "feedback_rejected",
+                reason="missing_identity_or_session",
+                username=username,
+                session_id=session_id,
+            )
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "message": "Missing required fields: userId/sessionId",
+                    }
+                )
+            )
+            return
 
         if self.db.is_user_blocked(username):
             self.db.log_security_event(

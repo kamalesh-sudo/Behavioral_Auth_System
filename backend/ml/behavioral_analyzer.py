@@ -43,6 +43,7 @@ class BehavioralAnalyzer:
         self.profile_train_min_samples = 8
         self.profile_history_max = 80
         self.drift_window_size = 6
+        self.cross_user_min_samples = 6
         self.user_context_history = defaultdict(lambda: defaultdict(int))
         self.last_explanations = {}
     
@@ -280,13 +281,15 @@ class BehavioralAnalyzer:
         drift_risk = self._temporal_drift_risk(user_id, features, keys)
         context_risk = self._context_novelty_risk(user_id, context)
         global_risk = self.analyze_with_global_model(features)
+        impostor_risk, impostor_hint = self._cross_user_impostor_risk(user_id, features, keys)
         # Emphasize personal baseline + model while adding drift/context stability checks.
         combined = (
-            (0.38 * model_risk)
-            + (0.27 * distance_risk)
-            + (0.20 * drift_risk)
-            + (0.10 * global_risk)
+            (0.34 * model_risk)
+            + (0.24 * distance_risk)
+            + (0.16 * drift_risk)
+            + (0.08 * global_risk)
             + (0.05 * context_risk)
+            + (0.13 * impostor_risk)
         )
         explanation = {
             "reason": "user_model",
@@ -296,9 +299,12 @@ class BehavioralAnalyzer:
                 "drift": float(drift_risk),
                 "global": float(global_risk),
                 "context": float(context_risk),
+                "impostor": float(impostor_risk),
             },
             "top_deviations": top_deviations,
         }
+        if impostor_hint:
+            explanation["impostor_hint"] = impostor_hint
         return float(np.clip(combined, 0.0, 1.0)), explanation
     
     def analyze_with_global_model(self, features):
@@ -447,6 +453,45 @@ class BehavioralAnalyzer:
         reference_std = np.std(previous_matrix, axis=0) + 1e-6
         drift_z = np.abs((recent_mean - previous_mean) / reference_std)
         return float(np.clip(np.median(drift_z) / 4.0, 0.0, 1.0))
+
+    @staticmethod
+    def _distance_to_profile(features: dict, keys: list[str], history: list[dict]) -> float:
+        if len(history) < 3:
+            return 3.0
+        matrix = np.array([[sample.get(k, 0.0) for k in keys] for sample in history], dtype=float)
+        baseline_mean = np.mean(matrix, axis=0)
+        baseline_std = np.std(matrix, axis=0) + 1e-6
+        current = np.array([features.get(k, 0.0) for k in keys], dtype=float)
+        z = np.abs((current - baseline_mean) / baseline_std)
+        return float(np.median(z))
+
+    def _cross_user_impostor_risk(self, user_id: str, features: dict, keys: list[str]) -> tuple[float, dict]:
+        own_history = self.user_feature_history[user_id]
+        if len(own_history) < self.cross_user_min_samples:
+            return 0.0, {}
+
+        own_distance = self._distance_to_profile(features, keys, own_history)
+        best_other = None
+        for other_user_id, other_history in self.user_feature_history.items():
+            if other_user_id == user_id or len(other_history) < self.cross_user_min_samples:
+                continue
+            other_distance = self._distance_to_profile(features, keys, other_history)
+            if best_other is None or other_distance < best_other["distance"]:
+                best_other = {"user_id": other_user_id, "distance": other_distance}
+
+        if not best_other:
+            return 0.0, {}
+
+        distance_gap = own_distance - best_other["distance"]
+        # Positive gap means claimed user looks less like self than another known user.
+        impostor_risk = float(np.clip((distance_gap + 0.75) / 2.0, 0.0, 1.0))
+        hint = {
+            "closest_other_user": best_other["user_id"],
+            "claimed_user_distance": float(own_distance),
+            "closest_other_distance": float(best_other["distance"]),
+            "distance_gap": float(distance_gap),
+        }
+        return impostor_risk, hint
 
     def _context_novelty_risk(self, user_id: str, context: dict | None) -> float:
         if not context:

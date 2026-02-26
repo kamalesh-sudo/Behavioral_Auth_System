@@ -124,6 +124,29 @@ class BehavioralMLTests(unittest.TestCase):
             float(known_expl["components"]["context"]),
         )
 
+    def test_cross_user_impostor_signal_increases_for_wrong_user(self) -> None:
+        analyzer = BehavioralAnalyzer()
+        user_a = "user_a"
+        user_b = "user_b"
+
+        data_a = {"keystrokeData": make_keystrokes(dwell=80, interval=200), "mouseData": make_mouse(step=20)}
+        data_b = {"keystrokeData": make_keystrokes(dwell=240, interval=520), "mouseData": make_mouse(step=85)}
+
+        analyzer.create_user_profile(user_a, data_a)
+        analyzer.create_user_profile(user_b, data_b)
+        for _ in range(12):
+            analyzer.update_user_profile(user_a, data_a)
+            analyzer.update_user_profile(user_b, data_b)
+
+        a_features = analyzer.extract_features(data_a)
+        b_features = analyzer.extract_features(data_b)
+        same_user_risk, same_user_expl = analyzer.analyze_with_user_model(a_features, user_a)
+        impostor_risk, impostor_expl = analyzer.analyze_with_user_model(b_features, user_a)
+
+        self.assertGreater(float(impostor_expl["components"]["impostor"]), float(same_user_expl["components"]["impostor"]))
+        self.assertGreater(impostor_risk, same_user_risk)
+        self.assertIn("impostor_hint", impostor_expl)
+
 
 if __name__ == "__main__":
     unittest.main()
