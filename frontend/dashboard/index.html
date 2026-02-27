@@ -114,6 +114,33 @@
                 </div>
             </section>
 
+            <section id="securityPanel" class="security-panel hidden">
+                <div class="security-header">
+                    <h2>Security Controls</h2>
+                    <button id="refreshSecurityBtn" class="secondary-btn">Refresh Lists</button>
+                </div>
+                <div class="security-grid">
+                    <article class="security-card">
+                        <h3>Blocked IPs</h3>
+                        <div class="inline-form">
+                            <input id="blockIpInput" type="text" placeholder="IP address (e.g. 203.0.113.10)">
+                            <input id="blockIpReasonInput" type="text" placeholder="Reason">
+                            <button id="blockIpBtn" class="primary-btn">Block IP</button>
+                        </div>
+                        <div id="blockedIpsList" class="security-list"></div>
+                    </article>
+                    <article class="security-card">
+                        <h3>Blocked Devices</h3>
+                        <div class="inline-form">
+                            <input id="blockDeviceInput" type="text" placeholder="Device fingerprint">
+                            <input id="blockDeviceReasonInput" type="text" placeholder="Reason">
+                            <button id="blockDeviceBtn" class="primary-btn">Block Device</button>
+                        </div>
+                        <div id="blockedDevicesList" class="security-list"></div>
+                    </article>
+                </div>
+            </section>
+
             <div id="statusBar" class="status">Ready</div>
         </main>
     </div>

@@ -21,6 +21,14 @@ class DeviceBlockPayload(BaseModel):
     reason: str = Field(default="Security policy", min_length=3, max_length=500)
 
 
+class IPUnblockPayload(BaseModel):
+    ip_address: str = Field(min_length=3, max_length=128)
+
+
+class DeviceUnblockPayload(BaseModel):
+    device_fingerprint: str = Field(min_length=8, max_length=256)
+
+
 class BehavioralProfilePayload(BaseModel):
     user_id: int = Field(gt=0)
     session_id: str = Field(min_length=1, max_length=256)

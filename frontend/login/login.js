@@ -348,10 +348,11 @@ class LoginBehavioralCollector {
 
             const result = await response.json();
 
-            if (result.success) {
-                let accessToken = result.access_token || null;
-                if (!accessToken) {
-                    const loginResponse = await fetch(`${this.getApiBaseUrl()}/api/login`, {
+                if (result.success) {
+                    let accessToken = result.access_token || null;
+                    let resolvedRole = result.role || 'user';
+                    if (!accessToken) {
+                        const loginResponse = await fetch(`${this.getApiBaseUrl()}/api/login`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -362,10 +363,11 @@ class LoginBehavioralCollector {
                             risk_score: this.currentRiskScore || 0,
                             device_fingerprint: this.deviceFingerprint
                         })
-                    });
-                    const loginResult = await loginResponse.json();
-                    accessToken = loginResult.access_token || null;
-                }
+                        });
+                        const loginResult = await loginResponse.json();
+                        accessToken = loginResult.access_token || null;
+                        resolvedRole = loginResult.role || resolvedRole;
+                    }
 
                 if (!accessToken) {
                     this.showAlert('Login succeeded but no access token was returned. Restart backend services and try again.', 'error');
@@ -379,6 +381,7 @@ class LoginBehavioralCollector {
                 // Store user info
                 localStorage.setItem('user_id', result.user_id);
                 localStorage.setItem('username', result.username);
+                localStorage.setItem('user_role', resolvedRole);
                 localStorage.setItem('session_id', this.sessionId);
                 localStorage.setItem('auth_token', accessToken);
                 localStorage.setItem('ws_auth_token', accessToken);

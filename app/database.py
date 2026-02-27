@@ -391,6 +391,8 @@ class AuthDatabase:
         value = str(fingerprint).strip()
         if not value:
             return None
+        if len(value) == 64 and all(ch in "0123456789abcdefABCDEF" for ch in value):
+            return value.lower()
         # Store only a deterministic hash of the raw client fingerprint payload.
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
@@ -637,6 +639,54 @@ class AuthDatabase:
         except Exception as exc:  # pylint: disable=broad-except
             return {"success": False, "error": str(exc)}
 
+    def unblock_ip(self, ip_address: str) -> dict:
+        normalized_ip = self._normalize_ip(ip_address)
+        if not normalized_ip:
+            return {"success": False, "error": "Invalid IP address"}
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM blocked_ips WHERE ip_address = ?", (normalized_ip,))
+            removed = cursor.rowcount > 0
+            conn.commit()
+            conn.close()
+            return {"success": True, "removed": removed, "ip_address": normalized_ip}
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
+    def list_blocked_ips(self, limit: int = 200) -> dict:
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT ip_address, reason, blocked_until, blocked_by, created_at, updated_at
+                FROM blocked_ips
+                WHERE blocked_until IS NULL OR blocked_until > CURRENT_TIMESTAMP
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            rows = cursor.fetchall()
+            conn.close()
+            return {
+                "success": True,
+                "blocked_ips": [
+                    {
+                        "ip_address": row[0],
+                        "reason": row[1],
+                        "blocked_until": row[2],
+                        "blocked_by": row[3],
+                        "created_at": row[4],
+                        "updated_at": row[5],
+                    }
+                    for row in rows
+                ],
+            }
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
     def is_device_fingerprint_blocked(self, fingerprint: str | None) -> bool:
         fingerprint_hash = self._normalize_fingerprint(fingerprint)
         if not fingerprint_hash:
@@ -680,6 +730,52 @@ class AuthDatabase:
             conn.commit()
             conn.close()
             return {"success": True, "fingerprint_hash": fingerprint_hash}
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
+    def unblock_device_fingerprint(self, fingerprint: str) -> dict:
+        fingerprint_hash = self._normalize_fingerprint(fingerprint)
+        if not fingerprint_hash:
+            return {"success": False, "error": "Invalid device fingerprint"}
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM blocked_devices WHERE fingerprint_hash = ?", (fingerprint_hash,))
+            removed = cursor.rowcount > 0
+            conn.commit()
+            conn.close()
+            return {"success": True, "removed": removed, "fingerprint_hash": fingerprint_hash}
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
+    def list_blocked_devices(self, limit: int = 200) -> dict:
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT fingerprint_hash, reason, blocked_by, created_at, updated_at
+                FROM blocked_devices
+                ORDER BY updated_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            rows = cursor.fetchall()
+            conn.close()
+            return {
+                "success": True,
+                "blocked_devices": [
+                    {
+                        "fingerprint_hash": row[0],
+                        "reason": row[1],
+                        "blocked_by": row[2],
+                        "created_at": row[3],
+                        "updated_at": row[4],
+                    }
+                    for row in rows
+                ],
+            }
         except Exception as exc:  # pylint: disable=broad-except
             return {"success": False, "error": str(exc)}
 

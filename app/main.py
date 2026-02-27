@@ -17,7 +17,9 @@ from app.schemas import (
     BehavioralProfilePayload,
     Credentials,
     DeviceBlockPayload,
+    DeviceUnblockPayload,
     IPBlockPayload,
+    IPUnblockPayload,
     LoginPayload,
     ProjectCreatePayload,
     RoleUpdatePayload,
@@ -417,6 +419,41 @@ async def admin_block_ip(
 
 
 @route_aliases(
+    ["/admin/security/unblock-ip", "/api/admin/security/unblock-ip", "/api/v1/admin/security/unblock-ip"],
+    methods=["POST"],
+    tags=["security"],
+)
+async def admin_unblock_ip(
+    payload: IPUnblockPayload,
+    principal: dict = Depends(require_roles("analyst", "admin")),
+) -> dict:
+    result = db.unblock_ip(payload.ip_address)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to unblock IP"))
+    db.log_security_event(
+        username=principal["username"],
+        event_type="IP_UNBLOCKED",
+        reason=f"Unblocked IP {payload.ip_address}",
+    )
+    return {"success": True, "ip_address": payload.ip_address, "removed": bool(result.get("removed"))}
+
+
+@route_aliases(
+    ["/admin/security/blocked-ips", "/api/admin/security/blocked-ips", "/api/v1/admin/security/blocked-ips"],
+    methods=["GET"],
+    tags=["security"],
+)
+async def admin_list_blocked_ips(
+    principal: dict = Depends(require_roles("analyst", "admin")),
+) -> dict:
+    result = db.list_blocked_ips(limit=300)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to fetch blocked IPs"))
+    result["requested_by"] = principal["username"]
+    return result
+
+
+@route_aliases(
     ["/admin/security/block-device", "/api/admin/security/block-device", "/api/v1/admin/security/block-device"],
     methods=["POST"],
     tags=["security"],
@@ -434,6 +471,41 @@ async def admin_block_device(
         reason=f"Blocked device fingerprint: {payload.reason}",
     )
     return {"success": True}
+
+
+@route_aliases(
+    ["/admin/security/unblock-device", "/api/admin/security/unblock-device", "/api/v1/admin/security/unblock-device"],
+    methods=["POST"],
+    tags=["security"],
+)
+async def admin_unblock_device(
+    payload: DeviceUnblockPayload,
+    principal: dict = Depends(require_roles("analyst", "admin")),
+) -> dict:
+    result = db.unblock_device_fingerprint(payload.device_fingerprint)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to unblock device"))
+    db.log_security_event(
+        username=principal["username"],
+        event_type="DEVICE_UNBLOCKED",
+        reason="Unblocked device fingerprint",
+    )
+    return {"success": True, "removed": bool(result.get("removed"))}
+
+
+@route_aliases(
+    ["/admin/security/blocked-devices", "/api/admin/security/blocked-devices", "/api/v1/admin/security/blocked-devices"],
+    methods=["GET"],
+    tags=["security"],
+)
+async def admin_list_blocked_devices(
+    principal: dict = Depends(require_roles("analyst", "admin")),
+) -> dict:
+    result = db.list_blocked_devices(limit=300)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to fetch blocked devices"))
+    result["requested_by"] = principal["username"]
+    return result
 
 
 @route_aliases(["/projects", "/api/projects", "/api/v1/projects"], methods=["GET"], tags=["work"])

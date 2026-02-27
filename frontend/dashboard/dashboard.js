@@ -4,6 +4,7 @@ class WorkspaceApp {
         this.token = localStorage.getItem("auth_token");
         this.username = localStorage.getItem("username");
         this.userId = localStorage.getItem("user_id");
+        this.userRole = localStorage.getItem("user_role") || "user";
         this.sessionId = localStorage.getItem("session_id") || `session_${Date.now()}`;
         this.deviceFingerprint = localStorage.getItem("device_fingerprint") || this.generateDeviceFingerprint();
         this.projects = [];
@@ -28,6 +29,8 @@ class WorkspaceApp {
         document.getElementById("usernameText").textContent = this.username;
         localStorage.setItem("device_fingerprint", this.deviceFingerprint);
         this.bindUI();
+        this.initSecurityPanel();
+        this.refreshUserRole();
         this.initRealtime();
         this.loadProjects();
     }
@@ -84,6 +87,9 @@ class WorkspaceApp {
         document.getElementById("clearTaskFiltersBtn").addEventListener("click", () => this.resetTaskFilters());
         document.getElementById("cancelEditTaskBtn").addEventListener("click", () => this.closeEditTaskModal());
         document.getElementById("saveEditTaskBtn").addEventListener("click", () => this.saveEditedTask());
+        document.getElementById("refreshSecurityBtn").addEventListener("click", () => this.refreshSecurityLists());
+        document.getElementById("blockIpBtn").addEventListener("click", () => this.blockIp());
+        document.getElementById("blockDeviceBtn").addEventListener("click", () => this.blockDevice());
         document.getElementById("taskTitleInput").addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -103,8 +109,209 @@ class WorkspaceApp {
         document.addEventListener("click", (e) => this.recordClick(e));
     }
 
+    canManageSecurity() {
+        return this.userRole === "admin" || this.userRole === "analyst";
+    }
+
+    async refreshUserRole() {
+        if (!this.token || !this.username) return;
+        try {
+            const response = await fetch(`${this.apiBase}/api/user/${encodeURIComponent(this.username)}`, {
+                headers: this.authHeaders(),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.success || !data.user) {
+                return;
+            }
+            const role = data.user.role || "user";
+            this.userRole = role;
+            localStorage.setItem("user_role", role);
+            this.initSecurityPanel();
+        } catch (error) {
+            // Keep current role fallback when role refresh fails.
+        }
+    }
+
+    initSecurityPanel() {
+        const panel = document.getElementById("securityPanel");
+        if (!this.canManageSecurity()) {
+            panel.classList.add("hidden");
+            return;
+        }
+        panel.classList.remove("hidden");
+        this.refreshSecurityLists();
+    }
+
     setStatus(message) {
         document.getElementById("statusBar").textContent = message;
+    }
+
+    async refreshSecurityLists() {
+        if (!this.canManageSecurity()) return;
+        await Promise.all([this.loadBlockedIps(), this.loadBlockedDevices()]);
+    }
+
+    async loadBlockedIps() {
+        const response = await fetch(`${this.apiBase}/api/admin/security/blocked-ips`, {
+            headers: this.authHeaders(),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to load blocked IPs");
+            return;
+        }
+        this.renderBlockedIps(data.blocked_ips || []);
+    }
+
+    async loadBlockedDevices() {
+        const response = await fetch(`${this.apiBase}/api/admin/security/blocked-devices`, {
+            headers: this.authHeaders(),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to load blocked devices");
+            return;
+        }
+        this.renderBlockedDevices(data.blocked_devices || []);
+    }
+
+    async blockIp() {
+        const ipAddress = document.getElementById("blockIpInput").value.trim();
+        const reason = document.getElementById("blockIpReasonInput").value.trim() || "Manual admin block";
+        if (!ipAddress) return;
+        const response = await fetch(`${this.apiBase}/api/admin/security/block-ip`, {
+            method: "POST",
+            headers: this.authHeaders(),
+            body: JSON.stringify({ ip_address: ipAddress, reason }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to block IP");
+            return;
+        }
+        this.setStatus(`Blocked IP ${ipAddress}`);
+        document.getElementById("blockIpInput").value = "";
+        document.getElementById("blockIpReasonInput").value = "";
+        await this.loadBlockedIps();
+    }
+
+    async unblockIp(ipAddress) {
+        const response = await fetch(`${this.apiBase}/api/admin/security/unblock-ip`, {
+            method: "POST",
+            headers: this.authHeaders(),
+            body: JSON.stringify({ ip_address: ipAddress }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to unblock IP");
+            return;
+        }
+        this.setStatus(`Unblocked IP ${ipAddress}`);
+        await this.loadBlockedIps();
+    }
+
+    async blockDevice() {
+        const fingerprint = document.getElementById("blockDeviceInput").value.trim();
+        const reason = document.getElementById("blockDeviceReasonInput").value.trim() || "Manual admin block";
+        if (!fingerprint) return;
+        const response = await fetch(`${this.apiBase}/api/admin/security/block-device`, {
+            method: "POST",
+            headers: this.authHeaders(),
+            body: JSON.stringify({ device_fingerprint: fingerprint, reason }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to block device");
+            return;
+        }
+        this.setStatus("Blocked device fingerprint");
+        document.getElementById("blockDeviceInput").value = "";
+        document.getElementById("blockDeviceReasonInput").value = "";
+        await this.loadBlockedDevices();
+    }
+
+    async unblockDevice(fingerprintHash) {
+        const response = await fetch(`${this.apiBase}/api/admin/security/unblock-device`, {
+            method: "POST",
+            headers: this.authHeaders(),
+            body: JSON.stringify({ device_fingerprint: fingerprintHash }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to unblock device");
+            return;
+        }
+        this.setStatus("Unblocked device fingerprint");
+        await this.loadBlockedDevices();
+    }
+
+    renderBlockedIps(entries) {
+        const container = document.getElementById("blockedIpsList");
+        container.innerHTML = "";
+        if (!entries.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty-column";
+            empty.textContent = "No blocked IPs.";
+            container.appendChild(empty);
+            return;
+        }
+        entries.forEach((entry) => {
+            const row = document.createElement("div");
+            row.className = "security-item";
+
+            const text = document.createElement("div");
+            const title = document.createElement("strong");
+            title.textContent = entry.ip_address;
+            const meta = document.createElement("div");
+            meta.className = "security-meta";
+            meta.textContent = entry.reason || "No reason";
+            text.appendChild(title);
+            text.appendChild(meta);
+            row.appendChild(text);
+
+            const button = document.createElement("button");
+            button.className = "secondary-btn";
+            button.textContent = "Unblock";
+            button.addEventListener("click", () => this.unblockIp(entry.ip_address));
+            row.appendChild(button);
+
+            container.appendChild(row);
+        });
+    }
+
+    renderBlockedDevices(entries) {
+        const container = document.getElementById("blockedDevicesList");
+        container.innerHTML = "";
+        if (!entries.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty-column";
+            empty.textContent = "No blocked devices.";
+            container.appendChild(empty);
+            return;
+        }
+        entries.forEach((entry) => {
+            const row = document.createElement("div");
+            row.className = "security-item";
+
+            const text = document.createElement("div");
+            const shortHash = `${(entry.fingerprint_hash || "").slice(0, 16)}...`;
+            const title = document.createElement("strong");
+            title.textContent = shortHash;
+            const meta = document.createElement("div");
+            meta.className = "security-meta";
+            meta.textContent = entry.reason || "No reason";
+            text.appendChild(title);
+            text.appendChild(meta);
+            row.appendChild(text);
+
+            const button = document.createElement("button");
+            button.className = "secondary-btn";
+            button.textContent = "Unblock";
+            button.addEventListener("click", () => this.unblockDevice(entry.fingerprint_hash));
+            row.appendChild(button);
+
+            container.appendChild(row);
+        });
     }
 
     resetTaskFilters() {

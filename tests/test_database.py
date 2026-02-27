@@ -99,6 +99,22 @@ class AuthDatabaseTests(unittest.TestCase):
         self.assertTrue(blocked_device["success"])
         self.assertTrue(self.db.is_device_fingerprint_blocked(fp))
 
+        blocked_ips = self.db.list_blocked_ips(limit=20)
+        self.assertTrue(blocked_ips["success"])
+        self.assertTrue(any(item["ip_address"] == ip for item in blocked_ips["blocked_ips"]))
+
+        blocked_devices = self.db.list_blocked_devices(limit=20)
+        self.assertTrue(blocked_devices["success"])
+        self.assertGreaterEqual(len(blocked_devices["blocked_devices"]), 1)
+
+        unblocked_ip = self.db.unblock_ip(ip)
+        self.assertTrue(unblocked_ip["success"])
+        self.assertFalse(self.db.is_ip_blocked(ip))
+
+        unblocked_device = self.db.unblock_device_fingerprint(fp)
+        self.assertTrue(unblocked_device["success"])
+        self.assertFalse(self.db.is_device_fingerprint_blocked(fp))
+
     def test_register_and_lookup_known_user_device(self) -> None:
         created = self.db.create_user('gina', 'secret123')
         self.assertTrue(created['success'])

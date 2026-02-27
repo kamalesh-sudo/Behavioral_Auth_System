@@ -76,7 +76,11 @@ Realtime WebSocket is served by FastAPI at `/ws/behavioral` (no extra process ne
   - `GET /api/realtime-monitor` (analyst/admin)
 - `POST /api/admin/users/{username}/role` (admin)
 - `POST /api/admin/security/block-ip` (analyst/admin)
+- `POST /api/admin/security/unblock-ip` (analyst/admin)
+- `GET /api/admin/security/blocked-ips` (analyst/admin)
 - `POST /api/admin/security/block-device` (analyst/admin)
+- `POST /api/admin/security/unblock-device` (analyst/admin)
+- `GET /api/admin/security/blocked-devices` (analyst/admin)
 
 Security hardening included:
 - IP blocklist checks on auth + websocket connections
