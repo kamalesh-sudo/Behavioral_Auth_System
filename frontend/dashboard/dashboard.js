@@ -16,6 +16,8 @@ class WorkspaceApp {
         this.taskSearchQuery = "";
         this.taskPriorityFilter = "all";
         this.taskStatusFilter = "all";
+        this.taskSortBy = "newest";
+        this.editingTaskId = null;
 
         if (!this.token || !this.username) {
             window.location.href = "../login/login.html";
@@ -45,7 +47,13 @@ class WorkspaceApp {
             this.taskStatusFilter = event.target.value;
             this.renderBoard();
         });
+        document.getElementById("taskSortSelect").addEventListener("change", (event) => {
+            this.taskSortBy = event.target.value;
+            this.renderBoard();
+        });
         document.getElementById("clearTaskFiltersBtn").addEventListener("click", () => this.resetTaskFilters());
+        document.getElementById("cancelEditTaskBtn").addEventListener("click", () => this.closeEditTaskModal());
+        document.getElementById("saveEditTaskBtn").addEventListener("click", () => this.saveEditedTask());
         document.getElementById("taskTitleInput").addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -73,10 +81,81 @@ class WorkspaceApp {
         this.taskSearchQuery = "";
         this.taskPriorityFilter = "all";
         this.taskStatusFilter = "all";
+        this.taskSortBy = "newest";
         document.getElementById("taskSearchInput").value = "";
         document.getElementById("taskPriorityFilter").value = "all";
         document.getElementById("taskStatusFilter").value = "all";
+        document.getElementById("taskSortSelect").value = "newest";
         this.renderBoard();
+    }
+
+    openEditTaskModal(task) {
+        this.editingTaskId = task.id;
+        document.getElementById("editTaskTitleInput").value = task.title || "";
+        document.getElementById("editTaskDescriptionInput").value = task.description || "";
+        document.getElementById("editTaskPriorityInput").value = task.priority || "medium";
+        document.getElementById("editTaskDueDateInput").value = task.due_date || "";
+        document.getElementById("editTaskAssigneeInput").value = task.assignee_username || "";
+        document.getElementById("editTaskModal").classList.remove("hidden");
+    }
+
+    closeEditTaskModal() {
+        this.editingTaskId = null;
+        document.getElementById("editTaskModal").classList.add("hidden");
+    }
+
+    async saveEditedTask() {
+        if (!this.editingTaskId) return;
+        const title = document.getElementById("editTaskTitleInput").value.trim();
+        if (!title) {
+            this.setStatus("Task title is required");
+            return;
+        }
+
+        const payload = {
+            title,
+            description: document.getElementById("editTaskDescriptionInput").value.trim() || null,
+            priority: document.getElementById("editTaskPriorityInput").value,
+            due_date: document.getElementById("editTaskDueDateInput").value || null,
+            assignee_username: document.getElementById("editTaskAssigneeInput").value.trim() || null,
+        };
+        const response = await fetch(`${this.apiBase}/api/tasks/${this.editingTaskId}`, {
+            method: "PATCH",
+            headers: this.authHeaders(),
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to save task edits");
+            return;
+        }
+        this.setStatus(`Task ${this.editingTaskId} updated`);
+        this.closeEditTaskModal();
+        await this.loadTasks(this.currentProjectId);
+    }
+
+    async duplicateTask(task) {
+        if (!this.currentProjectId) return;
+        const payload = {
+            title: `${task.title} (Copy)`,
+            description: task.description || "",
+            priority: task.priority || "medium",
+            due_date: task.due_date || null,
+            assignee_username: task.assignee_username || null,
+            status: "todo",
+        };
+        const response = await fetch(`${this.apiBase}/api/projects/${this.currentProjectId}/tasks`, {
+            method: "POST",
+            headers: this.authHeaders(),
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to duplicate task");
+            return;
+        }
+        this.setStatus(`Task duplicated as #${data.task_id}`);
+        await this.loadTasks(this.currentProjectId);
     }
 
     authHeaders() {
@@ -289,7 +368,7 @@ class WorkspaceApp {
     }
 
     filteredTasks() {
-        return this.tasks.filter((task) => {
+        const filtered = this.tasks.filter((task) => {
             const matchesPriority =
                 this.taskPriorityFilter === "all" || task.priority === this.taskPriorityFilter;
             if (!matchesPriority) return false;
@@ -300,6 +379,27 @@ class WorkspaceApp {
             if (!this.taskSearchQuery) return true;
             const searchableText = `${task.title || ""} ${task.description || ""} ${task.assignee_username || ""}`.toLowerCase();
             return searchableText.includes(this.taskSearchQuery);
+        });
+
+        const priorityRank = { high: 3, medium: 2, low: 1 };
+        const dateValue = (value) => {
+            if (!value) return null;
+            const parsed = new Date(value).getTime();
+            return Number.isNaN(parsed) ? null : parsed;
+        };
+
+        return filtered.sort((a, b) => {
+            if (this.taskSortBy === "oldest") return a.id - b.id;
+            if (this.taskSortBy === "priority") return (priorityRank[b.priority] || 0) - (priorityRank[a.priority] || 0);
+            if (this.taskSortBy === "due_soon") {
+                const dueA = dateValue(a.due_date);
+                const dueB = dateValue(b.due_date);
+                if (dueA === null && dueB === null) return 0;
+                if (dueA === null) return 1;
+                if (dueB === null) return -1;
+                return dueA - dueB;
+            }
+            return b.id - a.id;
         });
     }
 
@@ -387,6 +487,7 @@ class WorkspaceApp {
         });
 
         const visibleTasks = this.filteredTasks();
+        const counts = { todo: 0, in_progress: 0, review: 0, done: 0 };
         visibleTasks.forEach((task) => {
             const card = document.createElement("div");
             card.className = "task-card";
@@ -437,8 +538,22 @@ class WorkspaceApp {
                 button.addEventListener("click", () => this.moveTask(task.id, status));
                 actions.appendChild(button);
             });
+
+            const editButton = document.createElement("button");
+            editButton.className = "secondary-btn";
+            editButton.textContent = "Edit";
+            editButton.addEventListener("click", () => this.openEditTaskModal(task));
+            actions.appendChild(editButton);
+
+            const duplicateButton = document.createElement("button");
+            duplicateButton.className = "secondary-btn";
+            duplicateButton.textContent = "Duplicate";
+            duplicateButton.addEventListener("click", () => this.duplicateTask(task));
+            actions.appendChild(duplicateButton);
+
             card.appendChild(actions);
             const column = columns[task.status] || columns.todo;
+            counts[task.status] = (counts[task.status] || 0) + 1;
             column.appendChild(card);
         });
 
@@ -452,6 +567,11 @@ class WorkspaceApp {
                 el.appendChild(empty);
             }
         });
+
+        document.getElementById("todoCount").textContent = counts.todo;
+        document.getElementById("inProgressCount").textContent = counts.in_progress;
+        document.getElementById("reviewCount").textContent = counts.review;
+        document.getElementById("doneCount").textContent = counts.done;
     }
 }
 

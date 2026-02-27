@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Freelancer Workspace</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -63,6 +66,12 @@
                     <option value="review">Review</option>
                     <option value="done">Done</option>
                 </select>
+                <select id="taskSortSelect">
+                    <option value="newest">Sort: Newest</option>
+                    <option value="oldest">Sort: Oldest</option>
+                    <option value="priority">Sort: Priority</option>
+                    <option value="due_soon">Sort: Due Soon</option>
+                </select>
                 <button id="clearTaskFiltersBtn" class="secondary-btn">Clear Filters</button>
             </section>
 
@@ -85,18 +94,22 @@
             <section class="board">
                 <div class="column">
                     <h3>To Do</h3>
+                    <div id="todoCount" class="column-count">0</div>
                     <div id="todoColumn" class="task-list"></div>
                 </div>
                 <div class="column">
                     <h3>In Progress</h3>
+                    <div id="inProgressCount" class="column-count">0</div>
                     <div id="inProgressColumn" class="task-list"></div>
                 </div>
                 <div class="column">
                     <h3>Review</h3>
+                    <div id="reviewCount" class="column-count">0</div>
                     <div id="reviewColumn" class="task-list"></div>
                 </div>
                 <div class="column">
                     <h3>Done</h3>
+                    <div id="doneCount" class="column-count">0</div>
                     <div id="doneColumn" class="task-list"></div>
                 </div>
             </section>
@@ -113,6 +126,27 @@
             <div class="modal-actions">
                 <button id="cancelProjectBtn" class="secondary-btn">Cancel</button>
                 <button id="saveProjectBtn" class="primary-btn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editTaskModal" class="modal hidden">
+        <div class="modal-card">
+            <h3>Edit Task</h3>
+            <div class="task-form-grid">
+                <input id="editTaskTitleInput" type="text" placeholder="Task title">
+                <select id="editTaskPriorityInput">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                </select>
+                <input id="editTaskDueDateInput" type="date">
+                <input id="editTaskAssigneeInput" type="text" placeholder="Assignee username (optional)">
+            </div>
+            <textarea id="editTaskDescriptionInput" placeholder="Task description"></textarea>
+            <div class="modal-actions">
+                <button id="cancelEditTaskBtn" class="secondary-btn">Cancel</button>
+                <button id="saveEditTaskBtn" class="primary-btn">Save Task</button>
             </div>
         </div>
     </div>

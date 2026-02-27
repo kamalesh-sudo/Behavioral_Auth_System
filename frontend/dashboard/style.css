@@ -4,8 +4,8 @@
 
 body {
     margin: 0;
-    font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
-    background: #f4f6f8;
+    font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", sans-serif;
+    background: radial-gradient(circle at 15% 10%, #e8f0ff 0%, #f4f6f8 48%, #eef2f7 100%);
     color: #1f2937;
 }
 
@@ -16,9 +16,10 @@ body {
 }
 
 .sidebar {
-    background: #111827;
+    background: linear-gradient(165deg, #0f172a 0%, #1e293b 100%);
     color: #f9fafb;
     padding: 20px;
+    border-right: 1px solid rgba(148, 163, 184, 0.15);
 }
 
 .brand {
@@ -66,17 +67,18 @@ body {
 }
 
 .risk-widget {
-    background: #e0e7ff;
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
     color: #1e3a8a;
     border-radius: 8px;
     padding: 8px 12px;
+    border: 1px solid #93c5fd;
 }
 
 .task-create, .board {
     background: #ffffff;
     border-radius: 12px;
     padding: 16px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
 }
 
 .insights {
@@ -104,9 +106,9 @@ body {
     background: #ffffff;
     border-radius: 12px;
     padding: 12px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
     display: grid;
-    grid-template-columns: 1fr repeat(3, minmax(140px, auto));
+    grid-template-columns: 1fr repeat(4, minmax(120px, auto));
     gap: 10px;
     align-items: center;
 }
@@ -141,13 +143,22 @@ textarea {
 }
 
 .primary-btn {
-    background: #2563eb;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
     color: white;
+    box-shadow: 0 5px 12px rgba(37, 99, 235, 0.25);
 }
 
 .secondary-btn {
     background: #e5e7eb;
     color: #111827;
+}
+
+.primary-btn:hover {
+    transform: translateY(-1px);
+}
+
+.secondary-btn:hover {
+    background: #dbe0e7;
 }
 
 .board {
@@ -158,6 +169,13 @@ textarea {
 
 .column h3 {
     margin: 0 0 8px;
+}
+
+.column-count {
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 600;
 }
 
 .task-list {
@@ -172,6 +190,12 @@ textarea {
     border-radius: 8px;
     padding: 10px;
     background: #fafafa;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.task-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
 }
 
 .task-description {
@@ -240,6 +264,10 @@ textarea {
 .status {
     font-size: 14px;
     color: #4b5563;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 10px;
 }
 
 .muted {
@@ -286,7 +314,7 @@ textarea {
         grid-template-columns: 1fr 1fr;
     }
     .task-controls {
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr 1fr 1fr;
     }
     .task-form-grid {
         grid-template-columns: 1fr 1fr;
