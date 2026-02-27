@@ -106,6 +106,38 @@ class BehavioralFeatureExtractor:
         features["pause_ratio"] = float(len(pauses) / max(1, len(ikl_latencies)))
         features["rhythm_consistency"] = float(np.std(ikl_latencies)) if ikl_latencies else 0.0
 
+        # Identity-sensitive typing structure features.
+        key_sequence = [str(e.get("key", "")) for e in keydown_events]
+        transitions = [f"{key_sequence[i]}->{key_sequence[i + 1]}" for i in range(len(key_sequence) - 1)]
+        if transitions:
+            counts = {}
+            for transition in transitions:
+                counts[transition] = counts.get(transition, 0) + 1
+            probs = np.array([c / len(transitions) for c in counts.values()], dtype=float)
+            features["transition_entropy"] = float(-np.sum(probs * np.log2(np.clip(probs, 1e-12, 1.0))))
+        else:
+            features["transition_entropy"] = 0.0
+
+        repeats = sum(1 for i in range(1, len(key_sequence)) if key_sequence[i] == key_sequence[i - 1])
+        features["repeat_key_ratio"] = float(repeats / max(1, len(key_sequence) - 1))
+        modifier_keys = {"Shift", "Control", "Alt", "Meta", "CapsLock"}
+        modifiers = sum(1 for key in key_sequence if key in modifier_keys)
+        features["modifier_key_ratio"] = float(modifiers / key_count)
+
+        if dwell_times:
+            dwell_arr = np.asarray(dwell_times, dtype=float)
+            dwell_mean = float(np.mean(dwell_arr))
+            features["dwell_cv"] = float((np.std(dwell_arr) / max(1e-6, dwell_mean)))
+        else:
+            features["dwell_cv"] = 0.0
+
+        if ikl_latencies:
+            ikl_arr = np.asarray(ikl_latencies, dtype=float)
+            ikl_mean = float(np.mean(ikl_arr))
+            features["ikl_burstiness"] = float(np.var(ikl_arr) / max(1e-6, ikl_mean))
+        else:
+            features["ikl_burstiness"] = 0.0
+
         # Dwell outlier rate via robust MAD.
         if dwell_times:
             dwell_arr = np.asarray(dwell_times, dtype=float)
@@ -144,17 +176,22 @@ class BehavioralFeatureExtractor:
         features = {}
         velocities = []
         accelerations = []
+        jerks = []
         direction_angles = []
         path_distance = 0.0
+        pause_count = 0
 
         if len(move_events) > 1:
             prev_v = None
+            prev_a = None
             for i in range(1, len(move_events)):
                 prev = move_events[i - 1]
                 cur = move_events[i]
                 dt = float(cur["timestamp"]) - float(prev["timestamp"])
                 if dt <= 0:
                     continue
+                if dt > 120:
+                    pause_count += 1
                 dx = float(cur["x"]) - float(prev["x"])
                 dy = float(cur["y"]) - float(prev["y"])
                 dist = np.hypot(dx, dy)
@@ -167,6 +204,11 @@ class BehavioralFeatureExtractor:
                     a = (v - prev_v) / dt
                     if np.isfinite(a):
                         accelerations.append(a)
+                        if prev_a is not None:
+                            jerk = (a - prev_a) / dt
+                            if np.isfinite(jerk):
+                                jerks.append(float(jerk))
+                        prev_a = a
                 prev_v = v
 
             start = move_events[0]
@@ -174,21 +216,36 @@ class BehavioralFeatureExtractor:
             straight_distance = float(np.hypot(float(end["x"]) - float(start["x"]), float(end["y"]) - float(start["y"])))
             movement_eff = straight_distance / path_distance if path_distance > 0 else 1.0
             features["movement_efficiency"] = float(np.clip(movement_eff, 0.0, 1.0))
+            features["path_length"] = float(path_distance)
 
             direction_changes = 0
+            turn_angles = []
             for i in range(1, len(direction_angles)):
                 delta = abs(direction_angles[i] - direction_angles[i - 1])
                 if delta > np.pi:
                     delta = 2 * np.pi - delta
                 if delta > (np.pi / 2):
                     direction_changes += 1
+                turn_angles.append(delta)
             features["direction_changes"] = float(direction_changes)
+            if turn_angles:
+                features["turn_angle_mean"] = float(np.mean(turn_angles))
+                features["turn_angle_std"] = float(np.std(turn_angles))
+            else:
+                features["turn_angle_mean"] = 0.0
+                features["turn_angle_std"] = 0.0
+            features["move_pause_ratio"] = float(pause_count / max(1, len(move_events) - 1))
         else:
             features["movement_efficiency"] = 0.0
             features["direction_changes"] = 0.0
+            features["path_length"] = 0.0
+            features["turn_angle_mean"] = 0.0
+            features["turn_angle_std"] = 0.0
+            features["move_pause_ratio"] = 0.0
 
         features.update(self._safe_stats(velocities, "velocity"))
         features.update(self._safe_stats(accelerations, "acceleration"))
+        features.update(self._safe_stats(jerks, "jerk"))
 
         if len(click_events) > 1:
             click_ts = [float(e["timestamp"]) for e in click_events]
@@ -204,6 +261,7 @@ class BehavioralFeatureExtractor:
             features["click_interval_p95"] = 0.0
             features["click_rate"] = 0.0
 
+        features["click_to_move_ratio"] = float(len(click_events) / max(1, len(move_events)))
         features["mouse_events_count"] = float(len(ordered))
         return features
 
@@ -230,6 +288,11 @@ class BehavioralFeatureExtractor:
             "pause_ratio": 0.0,
             "rhythm_consistency": 0.0,
             "dwell_outlier_rate": 0.0,
+            "transition_entropy": 0.0,
+            "repeat_key_ratio": 0.0,
+            "modifier_key_ratio": 0.0,
+            "dwell_cv": 0.0,
+            "ikl_burstiness": 0.0,
         }
 
     def get_default_mouse_features(self):
@@ -242,12 +305,21 @@ class BehavioralFeatureExtractor:
             "acceleration_std": 0.0,
             "acceleration_median": 0.0,
             "acceleration_p95": 0.0,
+            "jerk_mean": 0.0,
+            "jerk_std": 0.0,
+            "jerk_median": 0.0,
+            "jerk_p95": 0.0,
             "movement_efficiency": 0.0,
+            "path_length": 0.0,
             "direction_changes": 0.0,
+            "turn_angle_mean": 0.0,
+            "turn_angle_std": 0.0,
+            "move_pause_ratio": 0.0,
             "click_interval_mean": 0.0,
             "click_interval_std": 0.0,
             "click_interval_median": 0.0,
             "click_interval_p95": 0.0,
             "click_rate": 0.0,
+            "click_to_move_ratio": 0.0,
             "mouse_events_count": 0.0,
         }

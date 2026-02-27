@@ -44,6 +44,7 @@ class BehavioralAnalyzer:
         self.profile_history_max = 80
         self.drift_window_size = 6
         self.cross_user_min_samples = 6
+        self.identity_margin_target = 1.0
         self.user_context_history = defaultdict(lambda: defaultdict(int))
         self.last_explanations = {}
     
@@ -282,14 +283,16 @@ class BehavioralAnalyzer:
         context_risk = self._context_novelty_risk(user_id, context)
         global_risk = self.analyze_with_global_model(features)
         impostor_risk, impostor_hint = self._cross_user_impostor_risk(user_id, features, keys)
+        separation_risk = self._identity_separation_risk(user_id, features, keys)
         # Emphasize personal baseline + model while adding drift/context stability checks.
         combined = (
-            (0.34 * model_risk)
-            + (0.24 * distance_risk)
-            + (0.16 * drift_risk)
+            (0.30 * model_risk)
+            + (0.22 * distance_risk)
+            + (0.14 * drift_risk)
             + (0.08 * global_risk)
             + (0.05 * context_risk)
-            + (0.13 * impostor_risk)
+            + (0.14 * impostor_risk)
+            + (0.07 * separation_risk)
         )
         explanation = {
             "reason": "user_model",
@@ -300,6 +303,7 @@ class BehavioralAnalyzer:
                 "global": float(global_risk),
                 "context": float(context_risk),
                 "impostor": float(impostor_risk),
+                "separation": float(separation_risk),
             },
             "top_deviations": top_deviations,
         }
@@ -483,15 +487,37 @@ class BehavioralAnalyzer:
             return 0.0, {}
 
         distance_gap = own_distance - best_other["distance"]
+        ratio = own_distance / max(1e-6, best_other["distance"])
         # Positive gap means claimed user looks less like self than another known user.
-        impostor_risk = float(np.clip((distance_gap + 0.75) / 2.0, 0.0, 1.0))
+        gap_component = np.clip((distance_gap + 0.65) / 1.8, 0.0, 1.0)
+        ratio_component = np.clip((ratio - 0.9) / 0.9, 0.0, 1.0)
+        impostor_risk = float(np.clip((0.65 * gap_component) + (0.35 * ratio_component), 0.0, 1.0))
         hint = {
             "closest_other_user": best_other["user_id"],
             "claimed_user_distance": float(own_distance),
             "closest_other_distance": float(best_other["distance"]),
             "distance_gap": float(distance_gap),
+            "distance_ratio": float(ratio),
         }
         return impostor_risk, hint
+
+    def _identity_separation_risk(self, user_id: str, features: dict, keys: list[str]) -> float:
+        own_history = self.user_feature_history[user_id]
+        if len(own_history) < self.cross_user_min_samples:
+            return 0.3
+
+        own_distance = self._distance_to_profile(features, keys, own_history)
+        other_distances = [
+            self._distance_to_profile(features, keys, history)
+            for other_id, history in self.user_feature_history.items()
+            if other_id != user_id and len(history) >= self.cross_user_min_samples
+        ]
+        if not other_distances:
+            return 0.25
+        nearest_other = min(other_distances)
+        margin = nearest_other - own_distance
+        # If margin is low/negative, sample is insufficiently separated from other users.
+        return float(np.clip((self.identity_margin_target - margin) / (self.identity_margin_target + 1.0), 0.0, 1.0))
 
     def _context_novelty_risk(self, user_id: str, context: dict | None) -> float:
         if not context:

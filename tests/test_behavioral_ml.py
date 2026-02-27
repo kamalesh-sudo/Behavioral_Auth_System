@@ -146,6 +146,12 @@ class BehavioralMLTests(unittest.TestCase):
         self.assertGreater(float(impostor_expl["components"]["impostor"]), float(same_user_expl["components"]["impostor"]))
         self.assertGreater(impostor_risk, same_user_risk)
         self.assertIn("impostor_hint", impostor_expl)
+        self.assertIn("separation", impostor_expl["components"])
+        self.assertIn("separation", same_user_expl["components"])
+        self.assertGreater(
+            float(impostor_expl["components"]["separation"]),
+            float(same_user_expl["components"]["separation"]),
+        )
 
 
 if __name__ == "__main__":
