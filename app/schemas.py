@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -29,6 +31,10 @@ class DeviceUnblockPayload(BaseModel):
     device_fingerprint: str = Field(min_length=8, max_length=256)
 
 
+class UserStatusPayload(BaseModel):
+    is_active: bool
+
+
 class BehavioralProfilePayload(BaseModel):
     user_id: int = Field(gt=0)
     session_id: str = Field(min_length=1, max_length=256)
@@ -49,8 +55,8 @@ class UserInfo(BaseModel):
     id: int
     username: str
     role: str = "user"
-    created_at: str | None = None
-    last_login: str | None = None
+    created_at: str | datetime | None = None
+    last_login: str | datetime | None = None
     is_active: int
 
 
@@ -62,7 +68,7 @@ class UserResult(BaseModel):
 class BehavioralHistoryItem(BaseModel):
     session_id: str
     risk_score: float | None = None
-    timestamp: str
+    timestamp: str | datetime
 
 
 class BehavioralHistoryResult(BaseModel):

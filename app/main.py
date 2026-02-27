@@ -25,6 +25,7 @@ from app.schemas import (
     RoleUpdatePayload,
     TaskCreatePayload,
     TaskUpdatePayload,
+    UserStatusPayload,
     UploadResult,
     UserResult,
 )
@@ -396,6 +397,43 @@ async def update_user_role(
         reason=f"Set role for {username} to {payload.role}",
     )
     return {"success": True, "updated_user": username, "role": payload.role}
+
+
+@route_aliases(
+    ["/admin/users", "/api/admin/users", "/api/v1/admin/users"],
+    methods=["GET"],
+    tags=["security"],
+)
+async def admin_list_users(
+    principal: dict = Depends(require_roles("analyst", "admin")),
+) -> dict:
+    result = db.list_users(limit=500)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to list users"))
+    result["requested_by"] = principal["username"]
+    return result
+
+
+@route_aliases(
+    ["/admin/users/{username}/status", "/api/admin/users/{username}/status", "/api/v1/admin/users/{username}/status"],
+    methods=["POST"],
+    tags=["security"],
+)
+async def admin_update_user_status(
+    username: str,
+    payload: UserStatusPayload,
+    principal: dict = Depends(require_roles("admin")),
+) -> dict:
+    result = db.set_user_active(username, payload.is_active)
+    if not result.get("success"):
+        raise HTTPException(status_code=404, detail=result.get("error", "User not found"))
+    status_text = "active" if payload.is_active else "disabled"
+    db.log_security_event(
+        username=principal["username"],
+        event_type="USER_STATUS_UPDATED",
+        reason=f"Set user {username} status to {status_text}",
+    )
+    return {"success": True, "updated_user": username, "is_active": payload.is_active}
 
 
 @route_aliases(

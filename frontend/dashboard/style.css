@@ -108,6 +108,13 @@ body {
     background: #f8fafc;
 }
 
+.security-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
 .inline-form {
     display: grid;
     grid-template-columns: 1.3fr 1fr auto;
@@ -131,6 +138,27 @@ body {
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     padding: 8px;
+}
+
+.security-item-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.role-select {
+    min-width: 110px;
+}
+
+.monitor-output {
+    margin: 0;
+    background: #0f172a;
+    color: #cbd5e1;
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 12px;
+    max-height: 260px;
+    overflow: auto;
 }
 
 .security-meta {

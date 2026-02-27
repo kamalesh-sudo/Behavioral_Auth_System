@@ -17,6 +17,7 @@
             <div class="brand">Freelancer Workspace</div>
             <div class="user-box">
                 <div><strong id="usernameText">User</strong></div>
+                <div class="muted">Role: <span id="roleText">user</span></div>
                 <div class="muted">Behavioral monitoring enabled</div>
             </div>
             <button id="newProjectBtn" class="secondary-btn">New Project</button>
@@ -121,6 +122,13 @@
                 </div>
                 <div class="security-grid">
                     <article class="security-card">
+                        <div class="security-card-header">
+                            <h3>Users</h3>
+                            <button id="refreshUsersBtn" class="secondary-btn">Refresh</button>
+                        </div>
+                        <div id="usersAdminList" class="security-list"></div>
+                    </article>
+                    <article class="security-card">
                         <h3>Blocked IPs</h3>
                         <div class="inline-form">
                             <input id="blockIpInput" type="text" placeholder="IP address (e.g. 203.0.113.10)">
@@ -137,6 +145,20 @@
                             <button id="blockDeviceBtn" class="primary-btn">Block Device</button>
                         </div>
                         <div id="blockedDevicesList" class="security-list"></div>
+                    </article>
+                    <article class="security-card">
+                        <div class="security-card-header">
+                            <h3>Security Events</h3>
+                            <button id="refreshSecurityEventsBtn" class="secondary-btn">Refresh</button>
+                        </div>
+                        <div id="securityEventsList" class="security-list"></div>
+                    </article>
+                    <article class="security-card">
+                        <div class="security-card-header">
+                            <h3>Realtime Monitor</h3>
+                            <button id="refreshRealtimeBtn" class="secondary-btn">Refresh</button>
+                        </div>
+                        <pre id="realtimeMonitorData" class="monitor-output">Loading...</pre>
                     </article>
                 </div>
             </section>

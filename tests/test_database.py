@@ -85,6 +85,14 @@ class AuthDatabaseTests(unittest.TestCase):
         self.assertTrue(events['success'])
         self.assertEqual(events['events'][0]['event_type'], 'TEST_EVENT')
 
+        status_updated = self.db.set_user_active('erin', False)
+        self.assertTrue(status_updated['success'])
+        self.assertFalse(status_updated['is_active'])
+
+        users = self.db.list_users(limit=20)
+        self.assertTrue(users['success'])
+        self.assertTrue(any(u['username'] == 'erin' for u in users['users']))
+
     def test_ip_and_device_block_controls(self) -> None:
         ip = "203.0.113.10"
         fp = "device-fingerprint-alpha"

@@ -864,6 +864,52 @@ class AuthDatabase:
         except Exception as exc:  # pylint: disable=broad-except
             return {"success": False, "error": str(exc)}
 
+    def set_user_active(self, username: str, is_active: bool) -> dict:
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET is_active = ? WHERE username = ?", (bool(is_active), username))
+            updated = cursor.rowcount > 0
+            conn.commit()
+            conn.close()
+            if not updated:
+                return {"success": False, "error": "User not found"}
+            return {"success": True, "username": username, "is_active": bool(is_active)}
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
+    def list_users(self, limit: int = 500) -> dict:
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT id, username, role, created_at, last_login, is_active
+                FROM users
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+            rows = cursor.fetchall()
+            conn.close()
+            return {
+                "success": True,
+                "users": [
+                    {
+                        "id": row[0],
+                        "username": row[1],
+                        "role": row[2],
+                        "created_at": row[3],
+                        "last_login": row[4],
+                        "is_active": row[5],
+                    }
+                    for row in rows
+                ],
+            }
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
     def log_security_event(
         self,
         username: str,

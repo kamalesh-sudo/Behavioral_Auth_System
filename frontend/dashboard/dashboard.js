@@ -5,6 +5,7 @@ class WorkspaceApp {
         this.username = localStorage.getItem("username");
         this.userId = localStorage.getItem("user_id");
         this.userRole = localStorage.getItem("user_role") || "user";
+        this.hasSecurityAccess = false;
         this.sessionId = localStorage.getItem("session_id") || `session_${Date.now()}`;
         this.deviceFingerprint = localStorage.getItem("device_fingerprint") || this.generateDeviceFingerprint();
         this.projects = [];
@@ -27,6 +28,7 @@ class WorkspaceApp {
         }
 
         document.getElementById("usernameText").textContent = this.username;
+        document.getElementById("roleText").textContent = this.userRole;
         localStorage.setItem("device_fingerprint", this.deviceFingerprint);
         this.bindUI();
         this.initSecurityPanel();
@@ -88,8 +90,11 @@ class WorkspaceApp {
         document.getElementById("cancelEditTaskBtn").addEventListener("click", () => this.closeEditTaskModal());
         document.getElementById("saveEditTaskBtn").addEventListener("click", () => this.saveEditedTask());
         document.getElementById("refreshSecurityBtn").addEventListener("click", () => this.refreshSecurityLists());
+        document.getElementById("refreshUsersBtn").addEventListener("click", () => this.loadAdminUsers());
         document.getElementById("blockIpBtn").addEventListener("click", () => this.blockIp());
         document.getElementById("blockDeviceBtn").addEventListener("click", () => this.blockDevice());
+        document.getElementById("refreshSecurityEventsBtn").addEventListener("click", () => this.loadSecurityEvents());
+        document.getElementById("refreshRealtimeBtn").addEventListener("click", () => this.loadRealtimeMonitor());
         document.getElementById("taskTitleInput").addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -110,7 +115,7 @@ class WorkspaceApp {
     }
 
     canManageSecurity() {
-        return this.userRole === "admin" || this.userRole === "analyst";
+        return this.userRole === "admin" || this.userRole === "analyst" || this.hasSecurityAccess;
     }
 
     async refreshUserRole() {
@@ -119,16 +124,35 @@ class WorkspaceApp {
             const response = await fetch(`${this.apiBase}/api/user/${encodeURIComponent(this.username)}`, {
                 headers: this.authHeaders(),
             });
-            const data = await response.json();
-            if (!response.ok || !data.success || !data.user) {
-                return;
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.user) {
+                    const role = data.user.role || "user";
+                    this.userRole = role;
+                    localStorage.setItem("user_role", role);
+                    document.getElementById("roleText").textContent = role;
+                    this.initSecurityPanel();
+                    return;
+                }
             }
-            const role = data.user.role || "user";
-            this.userRole = role;
-            localStorage.setItem("user_role", role);
+            await this.probeSecurityAccess();
+        } catch (error) {
+            await this.probeSecurityAccess();
+        }
+    }
+
+    async probeSecurityAccess() {
+        try {
+            const response = await fetch(`${this.apiBase}/api/security-events?limit=1`, {
+                headers: this.authHeaders(),
+            });
+            this.hasSecurityAccess = response.ok;
+            if (this.hasSecurityAccess && this.userRole === "user") {
+                document.getElementById("roleText").textContent = "analyst/admin";
+            }
             this.initSecurityPanel();
         } catch (error) {
-            // Keep current role fallback when role refresh fails.
+            this.hasSecurityAccess = false;
         }
     }
 
@@ -148,7 +172,175 @@ class WorkspaceApp {
 
     async refreshSecurityLists() {
         if (!this.canManageSecurity()) return;
-        await Promise.all([this.loadBlockedIps(), this.loadBlockedDevices()]);
+        await Promise.all([
+            this.loadBlockedIps(),
+            this.loadBlockedDevices(),
+            this.loadAdminUsers(),
+            this.loadSecurityEvents(),
+            this.loadRealtimeMonitor(),
+        ]);
+    }
+
+    canManageUsers() {
+        return this.userRole === "admin";
+    }
+
+    async loadAdminUsers() {
+        if (!this.canManageSecurity()) return;
+        const response = await fetch(`${this.apiBase}/api/admin/users`, {
+            headers: this.authHeaders(),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to load users");
+            return;
+        }
+        this.renderUsers(data.users || []);
+    }
+
+    async updateUserRole(username, role) {
+        if (!this.canManageUsers()) return;
+        const response = await fetch(`${this.apiBase}/api/admin/users/${encodeURIComponent(username)}/role`, {
+            method: "POST",
+            headers: this.authHeaders(),
+            body: JSON.stringify({ role }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to update user role");
+            return;
+        }
+        this.setStatus(`Updated ${username} role to ${role}`);
+        await this.loadAdminUsers();
+    }
+
+    async updateUserStatus(username, isActive) {
+        if (!this.canManageUsers()) return;
+        const response = await fetch(`${this.apiBase}/api/admin/users/${encodeURIComponent(username)}/status`, {
+            method: "POST",
+            headers: this.authHeaders(),
+            body: JSON.stringify({ is_active: isActive }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to update user status");
+            return;
+        }
+        this.setStatus(`Updated ${username} status`);
+        await this.loadAdminUsers();
+    }
+
+    renderUsers(users) {
+        const container = document.getElementById("usersAdminList");
+        container.innerHTML = "";
+        if (!users.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty-column";
+            empty.textContent = "No users found.";
+            container.appendChild(empty);
+            return;
+        }
+        users.forEach((user) => {
+            const row = document.createElement("div");
+            row.className = "security-item";
+
+            const text = document.createElement("div");
+            const title = document.createElement("strong");
+            title.textContent = `${user.username} (${user.role})`;
+            const meta = document.createElement("div");
+            meta.className = "security-meta";
+            meta.textContent = user.is_active ? "Active" : "Disabled";
+            text.appendChild(title);
+            text.appendChild(meta);
+            row.appendChild(text);
+
+            const actions = document.createElement("div");
+            actions.className = "security-item-actions";
+
+            if (this.canManageUsers() && user.username !== this.username) {
+                const roleSelect = document.createElement("select");
+                roleSelect.className = "role-select";
+                ["user", "analyst", "admin"].forEach((role) => {
+                    const option = document.createElement("option");
+                    option.value = role;
+                    option.textContent = role;
+                    if (user.role === role) option.selected = true;
+                    roleSelect.appendChild(option);
+                });
+                roleSelect.addEventListener("change", () => this.updateUserRole(user.username, roleSelect.value));
+                actions.appendChild(roleSelect);
+
+                const statusBtn = document.createElement("button");
+                statusBtn.className = "secondary-btn";
+                statusBtn.textContent = user.is_active ? "Disable" : "Enable";
+                statusBtn.addEventListener("click", () => this.updateUserStatus(user.username, !Boolean(user.is_active)));
+                actions.appendChild(statusBtn);
+            }
+
+            row.appendChild(actions);
+            container.appendChild(row);
+        });
+    }
+
+    async loadSecurityEvents() {
+        if (!this.canManageSecurity()) return;
+        const response = await fetch(`${this.apiBase}/api/security-events?limit=50`, {
+            headers: this.authHeaders(),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to load security events");
+            return;
+        }
+        this.renderSecurityEvents(data.events || []);
+    }
+
+    renderSecurityEvents(events) {
+        const container = document.getElementById("securityEventsList");
+        container.innerHTML = "";
+        if (!events.length) {
+            const empty = document.createElement("div");
+            empty.className = "empty-column";
+            empty.textContent = "No events.";
+            container.appendChild(empty);
+            return;
+        }
+        events.forEach((event) => {
+            const row = document.createElement("div");
+            row.className = "security-item";
+
+            const text = document.createElement("div");
+            const title = document.createElement("strong");
+            title.textContent = `${event.event_type} (${event.username})`;
+            const meta = document.createElement("div");
+            meta.className = "security-meta";
+            meta.textContent = event.reason || "No reason";
+            text.appendChild(title);
+            text.appendChild(meta);
+            row.appendChild(text);
+
+            const timestamp = document.createElement("div");
+            timestamp.className = "security-meta";
+            timestamp.textContent = event.timestamp || "";
+            row.appendChild(timestamp);
+
+            container.appendChild(row);
+        });
+    }
+
+    async loadRealtimeMonitor() {
+        if (!this.canManageSecurity()) return;
+        const output = document.getElementById("realtimeMonitorData");
+        const response = await fetch(`${this.apiBase}/api/realtime-monitor`, {
+            headers: this.authHeaders(),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            this.setStatus(data.detail || "Failed to load realtime monitor");
+            output.textContent = "Failed to load realtime monitor";
+            return;
+        }
+        output.textContent = JSON.stringify(data, null, 2);
     }
 
     async loadBlockedIps() {
