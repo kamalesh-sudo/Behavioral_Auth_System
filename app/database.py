@@ -4,6 +4,7 @@ import json
 import os
 import secrets
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
 try:
@@ -117,6 +118,44 @@ class AuthDatabase:
             )
             cursor.execute(
                 """
+                CREATE TABLE IF NOT EXISTS blocked_ips (
+                    id BIGSERIAL PRIMARY KEY,
+                    ip_address TEXT UNIQUE NOT NULL,
+                    reason TEXT,
+                    blocked_until TIMESTAMPTZ,
+                    blocked_by TEXT,
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS blocked_devices (
+                    id BIGSERIAL PRIMARY KEY,
+                    fingerprint_hash TEXT UNIQUE NOT NULL,
+                    reason TEXT,
+                    blocked_by TEXT,
+                    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_devices (
+                    id BIGSERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users (id),
+                    fingerprint_hash TEXT NOT NULL,
+                    first_seen TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    last_seen TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                    last_ip TEXT,
+                    UNIQUE(user_id, fingerprint_hash)
+                )
+                """
+            )
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS projects (
                     id BIGSERIAL PRIMARY KEY,
                     owner_id BIGINT NOT NULL REFERENCES users (id),
@@ -200,6 +239,45 @@ class AuthDatabase:
             )
             cursor.execute(
                 """
+                CREATE TABLE IF NOT EXISTS blocked_ips (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ip_address TEXT UNIQUE NOT NULL,
+                    reason TEXT,
+                    blocked_until TIMESTAMP,
+                    blocked_by TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS blocked_devices (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    fingerprint_hash TEXT UNIQUE NOT NULL,
+                    reason TEXT,
+                    blocked_by TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_devices (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    fingerprint_hash TEXT NOT NULL,
+                    first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_ip TEXT,
+                    UNIQUE(user_id, fingerprint_hash),
+                    FOREIGN KEY (user_id) REFERENCES users (id)
+                )
+                """
+            )
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS projects (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     owner_id INTEGER NOT NULL,
@@ -237,6 +315,10 @@ class AuthDatabase:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_username ON login_attempts(username)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_timestamp ON login_attempts(timestamp)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_security_events_username ON security_events(username)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_blocked_ips_address ON blocked_ips(ip_address)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_blocked_devices_fingerprint ON blocked_devices(fingerprint_hash)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_devices_fingerprint ON user_devices(fingerprint_hash)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_project_id ON tasks(project_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_assignee_id ON tasks(assignee_id)")
@@ -294,6 +376,29 @@ class AuthDatabase:
         salt = salt or secrets.token_hex(32)
         digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000)
         return digest.hex(), salt
+
+    @staticmethod
+    def _normalize_ip(ip_address: str | None) -> str | None:
+        if not ip_address:
+            return None
+        value = str(ip_address).strip()
+        return value or None
+
+    @staticmethod
+    def _normalize_fingerprint(fingerprint: str | None) -> str | None:
+        if not fingerprint:
+            return None
+        value = str(fingerprint).strip()
+        if not value:
+            return None
+        # Store only a deterministic hash of the raw client fingerprint payload.
+        return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+    def _cutoff_timestamp(self, minutes: int) -> str:
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+        if self.is_postgres:
+            return cutoff.isoformat()
+        return cutoff.strftime("%Y-%m-%d %H:%M:%S")
 
     def create_user(self, username: str, password: str, role: str = "user") -> dict:
         try:
@@ -436,15 +541,191 @@ class AuthDatabase:
         ip_address: str | None = None,
     ) -> dict:
         try:
+            normalized_ip = self._normalize_ip(ip_address)
             conn = self._connect()
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO login_attempts (username, success, risk_score, ip_address) VALUES (?, ?, ?, ?)",
-                (username, success, risk_score, ip_address),
+                (username, success, risk_score, normalized_ip),
             )
             conn.commit()
             conn.close()
             return {"success": True}
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
+    def get_recent_failed_ip_attempts(self, ip_address: str, minutes: int = 20) -> int:
+        normalized_ip = self._normalize_ip(ip_address)
+        if not normalized_ip:
+            return 0
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cutoff = self._cutoff_timestamp(minutes)
+            failure_clause = "FALSE" if self.is_postgres else "0"
+            cursor.execute(
+                f"""
+                SELECT COUNT(*)
+                FROM login_attempts
+                WHERE success = {failure_clause}
+                AND ip_address = ?
+                AND timestamp >= ?
+                """,
+                (normalized_ip, cutoff),
+            )
+            row = cursor.fetchone()
+            conn.close()
+            return int(row[0]) if row else 0
+        except Exception:  # pylint: disable=broad-except
+            return 0
+
+    def is_ip_blocked(self, ip_address: str | None) -> bool:
+        normalized_ip = self._normalize_ip(ip_address)
+        if not normalized_ip:
+            return False
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT 1
+                FROM blocked_ips
+                WHERE ip_address = ?
+                  AND (blocked_until IS NULL OR blocked_until > CURRENT_TIMESTAMP)
+                LIMIT 1
+                """,
+                (normalized_ip,),
+            )
+            row = cursor.fetchone()
+            conn.close()
+            return row is not None
+        except Exception:  # pylint: disable=broad-except
+            return False
+
+    def block_ip(
+        self,
+        ip_address: str,
+        reason: str,
+        blocked_by: str | None = None,
+        duration_minutes: int | None = None,
+    ) -> dict:
+        normalized_ip = self._normalize_ip(ip_address)
+        if not normalized_ip:
+            return {"success": False, "error": "Invalid IP address"}
+        blocked_until = None
+        if duration_minutes and duration_minutes > 0:
+            blocked_until_dt = datetime.now(timezone.utc) + timedelta(minutes=duration_minutes)
+            blocked_until = blocked_until_dt.isoformat() if self.is_postgres else blocked_until_dt.strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO blocked_ips (ip_address, reason, blocked_until, blocked_by, updated_at)
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(ip_address) DO UPDATE SET
+                    reason = excluded.reason,
+                    blocked_until = excluded.blocked_until,
+                    blocked_by = excluded.blocked_by,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (normalized_ip, reason, blocked_until, blocked_by),
+            )
+            conn.commit()
+            conn.close()
+            return {"success": True, "ip_address": normalized_ip}
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
+    def is_device_fingerprint_blocked(self, fingerprint: str | None) -> bool:
+        fingerprint_hash = self._normalize_fingerprint(fingerprint)
+        if not fingerprint_hash:
+            return False
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT 1 FROM blocked_devices WHERE fingerprint_hash = ? LIMIT 1",
+                (fingerprint_hash,),
+            )
+            row = cursor.fetchone()
+            conn.close()
+            return row is not None
+        except Exception:  # pylint: disable=broad-except
+            return False
+
+    def block_device_fingerprint(
+        self,
+        fingerprint: str,
+        reason: str,
+        blocked_by: str | None = None,
+    ) -> dict:
+        fingerprint_hash = self._normalize_fingerprint(fingerprint)
+        if not fingerprint_hash:
+            return {"success": False, "error": "Invalid device fingerprint"}
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO blocked_devices (fingerprint_hash, reason, blocked_by, updated_at)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(fingerprint_hash) DO UPDATE SET
+                    reason = excluded.reason,
+                    blocked_by = excluded.blocked_by,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (fingerprint_hash, reason, blocked_by),
+            )
+            conn.commit()
+            conn.close()
+            return {"success": True, "fingerprint_hash": fingerprint_hash}
+        except Exception as exc:  # pylint: disable=broad-except
+            return {"success": False, "error": str(exc)}
+
+    def is_known_user_device(self, user_id: int, fingerprint: str | None) -> bool:
+        fingerprint_hash = self._normalize_fingerprint(fingerprint)
+        if not fingerprint_hash:
+            return False
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT 1
+                FROM user_devices
+                WHERE user_id = ? AND fingerprint_hash = ?
+                LIMIT 1
+                """,
+                (user_id, fingerprint_hash),
+            )
+            row = cursor.fetchone()
+            conn.close()
+            return row is not None
+        except Exception:  # pylint: disable=broad-except
+            return False
+
+    def register_user_device(self, user_id: int, fingerprint: str | None, ip_address: str | None = None) -> dict:
+        fingerprint_hash = self._normalize_fingerprint(fingerprint)
+        if not fingerprint_hash:
+            return {"success": False, "error": "Invalid device fingerprint"}
+        normalized_ip = self._normalize_ip(ip_address)
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO user_devices (user_id, fingerprint_hash, last_ip, first_seen, last_seen)
+                VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT(user_id, fingerprint_hash) DO UPDATE SET
+                    last_seen = CURRENT_TIMESTAMP,
+                    last_ip = excluded.last_ip
+                """,
+                (user_id, fingerprint_hash, normalized_ip),
+            )
+            conn.commit()
+            conn.close()
+            return {"success": True, "fingerprint_hash": fingerprint_hash}
         except Exception as exc:  # pylint: disable=broad-except
             return {"success": False, "error": str(exc)}
 

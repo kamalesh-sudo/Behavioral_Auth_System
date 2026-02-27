@@ -62,8 +62,8 @@ Realtime WebSocket is served by FastAPI at `/ws/behavioral` (no extra process ne
   - `GET /health`
 - Authentication
   - `POST /api/register`
-  - `POST /api/start-session`
-  - `POST /api/login`
+- `POST /api/start-session`
+- `POST /api/login`
 - Project and task management
   - `GET /api/projects`
   - `POST /api/projects`
@@ -74,7 +74,15 @@ Realtime WebSocket is served by FastAPI at `/ws/behavioral` (no extra process ne
 - Security and monitoring
   - `GET /api/security-events` (analyst/admin)
   - `GET /api/realtime-monitor` (analyst/admin)
-  - `POST /api/admin/users/{username}/role` (admin)
+- `POST /api/admin/users/{username}/role` (admin)
+- `POST /api/admin/security/block-ip` (analyst/admin)
+- `POST /api/admin/security/block-device` (analyst/admin)
+
+Security hardening included:
+- IP blocklist checks on auth + websocket connections
+- Device fingerprint blocklist checks on auth + websocket behavioral traffic
+- Known-device tracking per user (`user_devices`) with security event logging for new devices
+- Automatic temporary IP blocks after repeated failed login attempts
 
 Frontend pages are served at `http://localhost:5000`.
 

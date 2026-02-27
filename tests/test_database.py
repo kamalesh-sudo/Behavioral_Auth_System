@@ -85,6 +85,30 @@ class AuthDatabaseTests(unittest.TestCase):
         self.assertTrue(events['success'])
         self.assertEqual(events['events'][0]['event_type'], 'TEST_EVENT')
 
+    def test_ip_and_device_block_controls(self) -> None:
+        ip = "203.0.113.10"
+        fp = "device-fingerprint-alpha"
+
+        self.assertFalse(self.db.is_ip_blocked(ip))
+        blocked_ip = self.db.block_ip(ip, "test block", blocked_by="unit-test", duration_minutes=30)
+        self.assertTrue(blocked_ip["success"])
+        self.assertTrue(self.db.is_ip_blocked(ip))
+
+        self.assertFalse(self.db.is_device_fingerprint_blocked(fp))
+        blocked_device = self.db.block_device_fingerprint(fp, "test block", blocked_by="unit-test")
+        self.assertTrue(blocked_device["success"])
+        self.assertTrue(self.db.is_device_fingerprint_blocked(fp))
+
+    def test_register_and_lookup_known_user_device(self) -> None:
+        created = self.db.create_user('gina', 'secret123')
+        self.assertTrue(created['success'])
+        fp = "device-fingerprint-beta"
+
+        self.assertFalse(self.db.is_known_user_device(created['user_id'], fp))
+        registered = self.db.register_user_device(created['user_id'], fp, ip_address="198.51.100.20")
+        self.assertTrue(registered["success"])
+        self.assertTrue(self.db.is_known_user_device(created['user_id'], fp))
+
     def test_project_and_task_flow(self) -> None:
         owner = self.db.create_user('frank', 'secret123')
         self.assertTrue(owner['success'])

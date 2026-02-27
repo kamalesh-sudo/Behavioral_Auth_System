@@ -42,10 +42,39 @@ class RealtimeBehaviorService:
         self.last_global_train_at: datetime | None = None
         self.last_global_train_count: int = 0
 
+    @staticmethod
+    def _extract_ws_ip(websocket: WebSocket) -> str | None:
+        forwarded_for = websocket.headers.get("x-forwarded-for")
+        if forwarded_for:
+            first = forwarded_for.split(",")[0].strip()
+            if first:
+                return first
+        client = websocket.client
+        return client.host if client else None
+
+    @staticmethod
+    def _extract_device_fingerprint(data: dict) -> str | None:
+        context = data.get("context") if isinstance(data.get("context"), dict) else {}
+        fingerprint = (
+            context.get("device_fingerprint")
+            or context.get("deviceFingerprint")
+            or data.get("device_fingerprint")
+            or data.get("deviceFingerprint")
+        )
+        if not fingerprint:
+            return None
+        value = str(fingerprint).strip()
+        return value or None
+
     async def handle_client(self, websocket: WebSocket) -> None:
         await websocket.accept()
         client = websocket.client
         remote = f"{client.host}:{client.port}" if client else "unknown"
+        client_ip = self._extract_ws_ip(websocket)
+        if self.db.is_ip_blocked(client_ip):
+            self._record_event("ws_rejected_ip_blocked", ip_address=client_ip, remote=remote)
+            await websocket.close(code=1008, reason="IP blocked")
+            return
         self.metrics["connections_total"] += 1
         self.metrics["connections_active"] += 1
         self._record_event("ws_connected", remote=remote)
@@ -130,6 +159,8 @@ class RealtimeBehaviorService:
         keystroke_data = data.get("keystrokeData", [])
         mouse_data = data.get("mouseData", [])
         context = data.get("context") if isinstance(data.get("context"), dict) else None
+        client_ip = self._extract_ws_ip(websocket)
+        device_fingerprint = self._extract_device_fingerprint(data)
         if not username or not session_id:
             self._record_event(
                 "behavioral_rejected",
@@ -146,10 +177,28 @@ class RealtimeBehaviorService:
                 )
             )
             return
+
+        if self.db.is_ip_blocked(client_ip):
+            await self._terminate_session(
+                session_id=session_id,
+                username=username,
+                risk_score=1.0,
+                reason="IP address is blocked by security policy",
+            )
+            return
+        if self.db.is_device_fingerprint_blocked(device_fingerprint):
+            await self._terminate_session(
+                session_id=session_id,
+                username=username,
+                risk_score=1.0,
+                reason="Device is blocked by security policy",
+            )
+            return
         self._record_event(
             "behavioral_received",
             username=username,
             session_id=session_id,
+            ip_address=client_ip,
             keystrokes=len(keystroke_data),
             mouse=len(mouse_data),
         )
@@ -203,6 +252,19 @@ class RealtimeBehaviorService:
                 threshold=self.settings.anomaly_block_threshold,
             )
             self.db.block_user(username, session_id, risk_score, reason)
+            if client_ip:
+                self.db.block_ip(
+                    client_ip,
+                    reason=f"Realtime anomaly block for user {username}",
+                    blocked_by="system",
+                    duration_minutes=120,
+                )
+            if device_fingerprint:
+                self.db.block_device_fingerprint(
+                    device_fingerprint,
+                    reason=f"Realtime anomaly block for user {username}",
+                    blocked_by="system",
+                )
             self.db.log_security_event(
                 username=username,
                 event_type="REALTIME_ANOMALY_BLOCK",
@@ -244,6 +306,8 @@ class RealtimeBehaviorService:
     async def _handle_user_authentication(self, websocket: WebSocket, data: dict) -> None:
         username = data.get("userId") or self.connection_auth.get(websocket, {}).get("sub")
         session_id = data.get("sessionId")
+        client_ip = self._extract_ws_ip(websocket)
+        device_fingerprint = self._extract_device_fingerprint(data)
         if not username or not session_id:
             self._record_event(
                 "user_auth_rejected",
@@ -261,6 +325,23 @@ class RealtimeBehaviorService:
             )
             return
         self._record_event("user_auth_message", username=username, session_id=session_id)
+
+        if self.db.is_ip_blocked(client_ip):
+            await self._terminate_session(
+                session_id=session_id,
+                username=username,
+                risk_score=1.0,
+                reason="IP address is blocked by security policy",
+            )
+            return
+        if self.db.is_device_fingerprint_blocked(device_fingerprint):
+            await self._terminate_session(
+                session_id=session_id,
+                username=username,
+                risk_score=1.0,
+                reason="Device is blocked by security policy",
+            )
+            return
 
         if self.db.is_user_blocked(username):
             self.db.log_security_event(
@@ -282,6 +363,18 @@ class RealtimeBehaviorService:
         if username not in self.analyzer.user_profiles:
             self.analyzer.create_user_profile(username, {"keystrokeData": [], "mouseData": []})
             profile_created = True
+        user_info = self.db.get_user(username)
+        if user_info.get("success") and device_fingerprint:
+            user_id = user_info["user"]["id"]
+            known_device = self.db.is_known_user_device(user_id, device_fingerprint)
+            self.db.register_user_device(user_id, device_fingerprint, client_ip)
+            if not known_device:
+                self.db.log_security_event(
+                    username=username,
+                    event_type="NEW_DEVICE_WEBSOCKET",
+                    reason=f"New websocket device seen (ip={client_ip or 'unknown'})",
+                    session_id=session_id,
+                )
         profile = self.analyzer.user_profiles.get(username, {})
         self._record_event(
             "profile_state",

@@ -5,6 +5,7 @@ class WorkspaceApp {
         this.username = localStorage.getItem("username");
         this.userId = localStorage.getItem("user_id");
         this.sessionId = localStorage.getItem("session_id") || `session_${Date.now()}`;
+        this.deviceFingerprint = localStorage.getItem("device_fingerprint") || this.generateDeviceFingerprint();
         this.projects = [];
         this.tasks = [];
         this.currentProjectId = null;
@@ -25,9 +26,38 @@ class WorkspaceApp {
         }
 
         document.getElementById("usernameText").textContent = this.username;
+        localStorage.setItem("device_fingerprint", this.deviceFingerprint);
         this.bindUI();
         this.initRealtime();
         this.loadProjects();
+    }
+
+    generateDeviceFingerprint() {
+        const parts = [
+            navigator.userAgent || "na",
+            navigator.language || "na",
+            navigator.platform || "na",
+            String(navigator.hardwareConcurrency || 0),
+            String(navigator.maxTouchPoints || 0),
+            String(screen.width || 0),
+            String(screen.height || 0),
+            String(screen.colorDepth || 0),
+            Intl.DateTimeFormat().resolvedOptions().timeZone || "na",
+        ];
+        return parts.join("|").slice(0, 240);
+    }
+
+    deviceClass() {
+        const width = window.innerWidth || screen.width || 0;
+        return width <= 768 ? "mobile" : "desktop";
+    }
+
+    buildContext(sessionType = "workspace") {
+        return {
+            device_class: this.deviceClass(),
+            session_type: sessionType,
+            device_fingerprint: this.deviceFingerprint,
+        };
     }
 
     bindUI() {
@@ -175,7 +205,12 @@ class WorkspaceApp {
         this.socket.onopen = () => {
             this.socket.send(JSON.stringify({ token: this.token }));
             this.socket.send(
-                JSON.stringify({ type: "user_authentication", userId: this.username, sessionId: this.sessionId })
+                JSON.stringify({
+                    type: "user_authentication",
+                    userId: this.username,
+                    sessionId: this.sessionId,
+                    context: this.buildContext("workspace_auth"),
+                })
             );
             this.setStatus("Realtime monitoring active");
         };
@@ -258,6 +293,7 @@ class WorkspaceApp {
                 sessionId: this.sessionId,
                 keystrokeData: this.keystrokeData,
                 mouseData: this.mouseData,
+                context: this.buildContext("workspace_monitoring"),
                 timestamp: Date.now(),
             })
         );

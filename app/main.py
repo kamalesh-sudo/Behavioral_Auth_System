@@ -16,6 +16,8 @@ from app.schemas import (
     BehavioralHistoryResult,
     BehavioralProfilePayload,
     Credentials,
+    DeviceBlockPayload,
+    IPBlockPayload,
     LoginPayload,
     ProjectCreatePayload,
     RoleUpdatePayload,
@@ -74,6 +76,17 @@ def _parse_bearer_token(authorization: str | None) -> str:
     if not token:
         raise HTTPException(status_code=401, detail="Empty bearer token")
     return token
+
+
+def _extract_client_ip(request: Request) -> str | None:
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        first = forwarded_for.split(",")[0].strip()
+        if first:
+            return first
+    if request.client:
+        return request.client.host
+    return None
 
 
 async def get_current_principal(authorization: str | None = Header(default=None, alias="Authorization")) -> dict:
@@ -191,7 +204,13 @@ async def register(payload: Credentials) -> dict:
 
 
 @route_aliases(["/start-session", "/api/start-session", "/api/v1/start-session"], methods=["POST"], tags=["auth"])
-async def start_session(payload: Credentials) -> dict:
+async def start_session(payload: Credentials, request: Request) -> dict:
+    client_ip = _extract_client_ip(request)
+    if db.is_ip_blocked(client_ip):
+        raise HTTPException(status_code=403, detail="Access denied from this IP address")
+    if db.is_device_fingerprint_blocked(payload.device_fingerprint):
+        raise HTTPException(status_code=403, detail="Access denied from this device")
+
     _ensure_username_not_blocked(payload.username)
     result = db.get_or_create_user(payload.username, payload.password)
     if not result.get("success"):
@@ -203,18 +222,49 @@ async def start_session(payload: Credentials) -> dict:
         result["role"] = "admin"
 
     access_token, expires_at = create_access_token(settings, result["username"], result["user_id"])
+    known_device = False
+    if payload.device_fingerprint:
+        known_device = db.is_known_user_device(result["user_id"], payload.device_fingerprint)
+        db.register_user_device(result["user_id"], payload.device_fingerprint, client_ip)
+        if not known_device and not result.get("is_new"):
+            db.log_security_event(
+                username=result["username"],
+                event_type="NEW_DEVICE_SESSION",
+                reason=f"Observed new device during session start (ip={client_ip or 'unknown'})",
+            )
     result["access_token"] = access_token
     result["token_type"] = "bearer"
     result["expires_at"] = expires_at
+    result["known_device"] = bool(known_device)
     return result
 
 
 @route_aliases(["/login", "/api/login", "/api/v1/login"], methods=["POST"], tags=["auth"])
 async def login(payload: LoginPayload, request: Request) -> dict:
+    client_ip = _extract_client_ip(request)
+    if db.is_ip_blocked(client_ip):
+        raise HTTPException(status_code=403, detail="Access denied from this IP address")
+    if db.is_device_fingerprint_blocked(payload.device_fingerprint):
+        raise HTTPException(status_code=403, detail="Access denied from this device")
+
     _ensure_username_not_blocked(payload.username)
     result = db.verify_user(payload.username, payload.password)
-    client_ip = request.client.host if request.client else None
     db.log_login_attempt(payload.username, int(result.get("success", False)), payload.risk_score, client_ip)
+
+    if not result.get("success"):
+        failures = db.get_recent_failed_ip_attempts(client_ip or "", minutes=20)
+        if failures >= 8:
+            db.block_ip(
+                client_ip or "",
+                reason="Too many failed login attempts from IP",
+                blocked_by="system",
+                duration_minutes=30,
+            )
+            db.log_security_event(
+                username=payload.username,
+                event_type="IP_TEMP_BLOCKED",
+                reason=f"Temporarily blocked IP after repeated failed logins (ip={client_ip or 'unknown'})",
+            )
 
     if result.get("success") and payload.risk_score > settings.high_risk_threshold:
         db.log_security_event(
@@ -228,6 +278,7 @@ async def login(payload: LoginPayload, request: Request) -> dict:
                 "event_type": "HIGH_RISK_LOGIN",
                 "username": payload.username,
                 "risk_score": payload.risk_score,
+                "ip_address": client_ip,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
@@ -241,6 +292,26 @@ async def login(payload: LoginPayload, request: Request) -> dict:
         db.set_user_role(result["username"], "admin")
         result["role"] = "admin"
 
+    known_device = False
+    if payload.device_fingerprint:
+        known_device = db.is_known_user_device(result["user_id"], payload.device_fingerprint)
+        if not known_device and payload.risk_score > 0.55:
+            db.log_security_event(
+                username=payload.username,
+                event_type="NEW_DEVICE_HIGH_RISK_DENIED",
+                reason=f"Denied login from unknown device due to elevated risk (ip={client_ip or 'unknown'})",
+                risk_score=payload.risk_score,
+            )
+            raise HTTPException(status_code=403, detail="Unknown device with elevated risk. Verification required.")
+        db.register_user_device(result["user_id"], payload.device_fingerprint, client_ip)
+        if not known_device:
+            db.log_security_event(
+                username=payload.username,
+                event_type="NEW_DEVICE_LOGIN",
+                reason=f"New device login accepted (ip={client_ip or 'unknown'})",
+                risk_score=payload.risk_score,
+            )
+
     access_token, expires_at = create_access_token(settings, result["username"], result["user_id"])
 
     return {
@@ -250,6 +321,7 @@ async def login(payload: LoginPayload, request: Request) -> dict:
         "username": result["username"],
         "role": result["role"],
         "risk_score": payload.risk_score,
+        "known_device": bool(known_device),
         "access_token": access_token,
         "token_type": "bearer",
         "expires_at": expires_at,
@@ -322,6 +394,46 @@ async def update_user_role(
         reason=f"Set role for {username} to {payload.role}",
     )
     return {"success": True, "updated_user": username, "role": payload.role}
+
+
+@route_aliases(
+    ["/admin/security/block-ip", "/api/admin/security/block-ip", "/api/v1/admin/security/block-ip"],
+    methods=["POST"],
+    tags=["security"],
+)
+async def admin_block_ip(
+    payload: IPBlockPayload,
+    principal: dict = Depends(require_roles("analyst", "admin")),
+) -> dict:
+    result = db.block_ip(payload.ip_address, payload.reason, blocked_by=principal["username"], duration_minutes=None)
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to block IP"))
+    db.log_security_event(
+        username=principal["username"],
+        event_type="IP_BLOCKED",
+        reason=f"Blocked IP {payload.ip_address}: {payload.reason}",
+    )
+    return {"success": True, "ip_address": payload.ip_address}
+
+
+@route_aliases(
+    ["/admin/security/block-device", "/api/admin/security/block-device", "/api/v1/admin/security/block-device"],
+    methods=["POST"],
+    tags=["security"],
+)
+async def admin_block_device(
+    payload: DeviceBlockPayload,
+    principal: dict = Depends(require_roles("analyst", "admin")),
+) -> dict:
+    result = db.block_device_fingerprint(payload.device_fingerprint, payload.reason, blocked_by=principal["username"])
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=result.get("error", "Failed to block device"))
+    db.log_security_event(
+        username=principal["username"],
+        event_type="DEVICE_BLOCKED",
+        reason=f"Blocked device fingerprint: {payload.reason}",
+    )
+    return {"success": True}
 
 
 @route_aliases(["/projects", "/api/projects", "/api/v1/projects"], methods=["GET"], tags=["work"])

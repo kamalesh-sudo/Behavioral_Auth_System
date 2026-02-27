@@ -9,6 +9,8 @@ class LoginBehavioralCollector {
         this.isCollecting = false;
         this.sessionTerminated = false;
         this.pendingAuthPayload = null;
+        this.deviceFingerprint = localStorage.getItem('device_fingerprint') || this.generateDeviceFingerprint();
+        localStorage.setItem('device_fingerprint', this.deviceFingerprint);
 
         this.init();
     }
@@ -64,6 +66,34 @@ class LoginBehavioralCollector {
 
     generateSessionId() {
         return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    generateDeviceFingerprint() {
+        const parts = [
+            navigator.userAgent || 'na',
+            navigator.language || 'na',
+            navigator.platform || 'na',
+            String(navigator.hardwareConcurrency || 0),
+            String(navigator.maxTouchPoints || 0),
+            String(screen.width || 0),
+            String(screen.height || 0),
+            String(screen.colorDepth || 0),
+            Intl.DateTimeFormat().resolvedOptions().timeZone || 'na',
+        ];
+        return parts.join('|').slice(0, 240);
+    }
+
+    deviceClass() {
+        const width = window.innerWidth || screen.width || 0;
+        return width <= 768 ? 'mobile' : 'desktop';
+    }
+
+    buildContext(sessionType = 'login') {
+        return {
+            device_class: this.deviceClass(),
+            session_type: sessionType,
+            device_fingerprint: this.deviceFingerprint,
+        };
     }
 
     setupEventListeners() {
@@ -276,6 +306,7 @@ class LoginBehavioralCollector {
             sessionId: this.sessionId,
             keystrokeData: this.keystrokeData,
             mouseData: this.mouseData,
+            context: this.buildContext('login_monitoring'),
             timestamp: Date.now()
         };
 
@@ -312,7 +343,7 @@ class LoginBehavioralCollector {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username, password, device_fingerprint: this.deviceFingerprint })
             });
 
             const result = await response.json();
@@ -325,7 +356,12 @@ class LoginBehavioralCollector {
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ username, password, risk_score: this.currentRiskScore || 0 })
+                        body: JSON.stringify({
+                            username,
+                            password,
+                            risk_score: this.currentRiskScore || 0,
+                            device_fingerprint: this.deviceFingerprint
+                        })
                     });
                     const loginResult = await loginResponse.json();
                     accessToken = loginResult.access_token || null;
@@ -346,6 +382,7 @@ class LoginBehavioralCollector {
                 localStorage.setItem('session_id', this.sessionId);
                 localStorage.setItem('auth_token', accessToken);
                 localStorage.setItem('ws_auth_token', accessToken);
+                localStorage.setItem('device_fingerprint', this.deviceFingerprint);
 
                 // Redirect to dashboard after 1 second
                 setTimeout(() => {

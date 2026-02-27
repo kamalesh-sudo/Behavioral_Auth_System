@@ -4,10 +4,21 @@ from pydantic import BaseModel, Field
 class Credentials(BaseModel):
     username: str = Field(min_length=1, max_length=128)
     password: str = Field(min_length=1, max_length=256)
+    device_fingerprint: str | None = Field(default=None, min_length=8, max_length=256)
 
 
 class LoginPayload(Credentials):
     risk_score: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class IPBlockPayload(BaseModel):
+    ip_address: str = Field(min_length=3, max_length=128)
+    reason: str = Field(default="Security policy", min_length=3, max_length=500)
+
+
+class DeviceBlockPayload(BaseModel):
+    device_fingerprint: str = Field(min_length=8, max_length=256)
+    reason: str = Field(default="Security policy", min_length=3, max_length=500)
 
 
 class BehavioralProfilePayload(BaseModel):
