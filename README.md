@@ -178,3 +178,37 @@ Use these tips when explaining code to new developers:
 - Highlight placeholders clearly, such as `<TOKEN>` or `your_username`.
 - Add expected output when possible so beginners can verify success.
 - Keep command examples and app code separate to avoid confusion.
+
+## Beginner Demo Flow (File + Command + Point)
+
+Use this exact sequence in presentations:
+
+1. File: `.env`
+   Command:
+```bash
+cp .env.example .env
+```
+   Point: Environment variables must be ready first.
+
+2. File: `backend/requirements.txt`
+   Command:
+```bash
+cd backend
+pip install -r requirements.txt
+cd ..
+```
+   Point: Dependencies come before server run commands.
+
+3. File: `app/main.py`
+   Command:
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
+```
+   Point: This starts the main API and frontend hosting.
+
+4. File: `backend/websocket_server.py` (legacy)
+   Command:
+```bash
+python backend/websocket_server.py
+```
+   Point: Run only for legacy standalone WebSocket testing.

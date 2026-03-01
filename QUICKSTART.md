@@ -70,6 +70,31 @@ python backend/websocket_server.py
 
 JWT is issued by `/api/start-session` and stored by the frontend automatically.
 
+## File + Command Cheat Sheet (Beginner)
+
+Use this mini format while presenting:
+
+1. File: `.env`
+   Command:
+```bash
+cat .env
+```
+   Point: Show which values must be set before running the app.
+
+2. File: `app/main.py`
+   Command:
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
+```
+   Point: Show where the backend server starts.
+
+3. File: `backend/websocket_server.py` (legacy)
+   Command:
+```bash
+python backend/websocket_server.py
+```
+   Point: Explain this is optional and used for legacy standalone mode.
+
 ## Optional Settings
 
 - Set `ALERT_WEBHOOK_URL` to receive security event webhooks.
