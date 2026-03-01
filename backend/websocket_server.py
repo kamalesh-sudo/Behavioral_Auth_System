@@ -1,3 +1,10 @@
+"""Legacy standalone WebSocket server for behavioral monitoring.
+
+Note:
+- The main app now serves `/ws/behavioral` via FastAPI.
+- Keep this file for backward compatibility or isolated testing.
+"""
+
 import asyncio
 import websockets
 import json
@@ -20,6 +27,8 @@ from app.security import verify_access_token
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
 class BehavioralWebSocketServer:
+    """WebSocket handler for auth, realtime scoring, and feedback updates."""
+
     def __init__(self):
         settings = get_settings()
         self.settings = settings
@@ -30,6 +39,7 @@ class BehavioralWebSocketServer:
         self.user_sessions = {}
 
     async def terminate_session(self, session_id, user_id, risk_score, reason):
+        """Notify client, close connection, and remove the tracked session."""
         payload = {
             "type": "session_terminated",
             "sessionId": session_id,
@@ -108,6 +118,11 @@ class BehavioralWebSocketServer:
                 await self.handle_user_authentication(websocket, data)
             elif message_type == 'feedback':
                 await self.handle_feedback(websocket, data)
+            else:
+                await websocket.send(json.dumps({
+                    'type': 'error',
+                    'message': f"Unsupported message type: {message_type}"
+                }))
                 
         except json.JSONDecodeError:
             logging.error(f"Invalid JSON format received: {message}")
@@ -281,6 +296,7 @@ class BehavioralWebSocketServer:
         }))
 
 async def main():
+    """Start standalone server for legacy compatibility."""
     server = BehavioralWebSocketServer()
     host = os.environ.get("WEBSOCKET_HOST", "0.0.0.0")
     port = int(os.environ.get("WEBSOCKET_PORT", 8765))
