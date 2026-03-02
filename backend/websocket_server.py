@@ -38,6 +38,16 @@ class BehavioralWebSocketServer:
         self.connected_clients = set()
         self.user_sessions = {}
 
+    def _cleanup_websocket_sessions(self, websocket):
+        """Remove all tracked sessions bound to a disconnected websocket."""
+        stale_session_ids = [
+            session_id
+            for session_id, session_data in self.user_sessions.items()
+            if session_data.get("websocket") is websocket
+        ]
+        for session_id in stale_session_ids:
+            self.user_sessions.pop(session_id, None)
+
     async def terminate_session(self, session_id, user_id, risk_score, reason):
         """Notify client, close connection, and remove the tracked session."""
         payload = {
@@ -99,6 +109,7 @@ class BehavioralWebSocketServer:
             pass
         finally:
             self.connected_clients.discard(websocket)
+            self._cleanup_websocket_sessions(websocket)
             logging.info("Client disconnected: %s", websocket.remote_address)
     
     async def process_message(self, websocket, message):
@@ -134,7 +145,7 @@ class BehavioralWebSocketServer:
             logging.error(f"Error processing message: {e}", exc_info=True)
             await websocket.send(json.dumps({
                 'type': 'error',
-                'message': str(e)
+                'message': 'Internal server error'
             }))
     
     async def handle_behavioral_data(self, websocket, data):
@@ -143,6 +154,13 @@ class BehavioralWebSocketServer:
         session_id = data.get('sessionId')
         keystroke_data = data.get('keystrokeData', [])
         mouse_data = data.get('mouseData', [])
+
+        if not user_id or not session_id:
+            await websocket.send(json.dumps({
+                'type': 'error',
+                'message': 'userId and sessionId are required for behavioral_data'
+            }))
+            return
 
         if self.db.is_user_blocked(user_id):
             self.db.log_security_event(
@@ -236,6 +254,13 @@ class BehavioralWebSocketServer:
         session_id = data.get('sessionId')
         logging.info(f"User authentication received: userId={user_id}, sessionId={session_id}")
 
+        if not user_id or not session_id:
+            await websocket.send(json.dumps({
+                'type': 'error',
+                'message': 'userId and sessionId are required for user_authentication'
+            }))
+            return
+
         if self.db.is_user_blocked(user_id):
             self.db.log_security_event(
                 username=user_id,
@@ -270,6 +295,13 @@ class BehavioralWebSocketServer:
         session_id = data.get('sessionId')
         feedback = data.get('feedback')
         behavioral_data = data.get('behavioralData')
+
+        if not user_id or not session_id:
+            await websocket.send(json.dumps({
+                'type': 'error',
+                'message': 'userId and sessionId are required for feedback'
+            }))
+            return
 
         if self.db.is_user_blocked(user_id):
             self.db.log_security_event(
