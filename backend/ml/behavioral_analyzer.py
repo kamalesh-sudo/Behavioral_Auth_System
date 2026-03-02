@@ -435,7 +435,7 @@ class BehavioralAnalyzer:
         current = np.array([features.get(k, 0.0) for k in keys], dtype=float)
         z = np.abs((current - baseline_mean) / baseline_std)
         # Robust aggregated shift from normal behavior.
-        z_score = float(np.median(z))
+        z_score = self._aggregate_shift(z)
         top_idx = np.argsort(z)[-5:][::-1]
         top_deviations = [
             {"feature": keys[int(i)], "z_score": float(z[int(i)]), "value": float(current[int(i)]), "baseline": float(baseline_mean[int(i)])}
@@ -456,7 +456,7 @@ class BehavioralAnalyzer:
         previous_mean = np.mean(previous_matrix, axis=0)
         reference_std = np.std(previous_matrix, axis=0) + 1e-6
         drift_z = np.abs((recent_mean - previous_mean) / reference_std)
-        return float(np.clip(np.median(drift_z) / 4.0, 0.0, 1.0))
+        return float(np.clip(self._aggregate_shift(drift_z) / 4.0, 0.0, 1.0))
 
     @staticmethod
     def _distance_to_profile(features: dict, keys: list[str], history: list[dict]) -> float:
@@ -467,7 +467,25 @@ class BehavioralAnalyzer:
         baseline_std = np.std(matrix, axis=0) + 1e-6
         current = np.array([features.get(k, 0.0) for k in keys], dtype=float)
         z = np.abs((current - baseline_mean) / baseline_std)
-        return float(np.median(z))
+        return float(BehavioralAnalyzer._aggregate_shift(z))
+
+    @staticmethod
+    def _aggregate_shift(z_values: np.ndarray) -> float:
+        """Aggregate per-feature z-shifts without losing sparse but important deviations."""
+        if z_values.size == 0:
+            return 0.0
+        z = np.asarray(z_values, dtype=float)
+        z = z[np.isfinite(z)]
+        if z.size == 0:
+            return 0.0
+        capped = np.clip(z, 0.0, 12.0)
+        p50 = float(np.percentile(capped, 50))
+        p75 = float(np.percentile(capped, 75))
+        top_k = max(1, int(np.ceil(capped.size * 0.10)))
+        tail = float(np.mean(np.partition(capped, -top_k)[-top_k:]))
+        active_ratio = float(np.mean(capped > 1.0))
+        ratio_term = 4.0 * active_ratio
+        return float((0.35 * p50) + (0.30 * p75) + (0.25 * tail) + (0.10 * ratio_term))
 
     def _cross_user_impostor_risk(self, user_id: str, features: dict, keys: list[str]) -> tuple[float, dict]:
         own_history = self.user_feature_history[user_id]
@@ -489,9 +507,9 @@ class BehavioralAnalyzer:
         distance_gap = own_distance - best_other["distance"]
         ratio = own_distance / max(1e-6, best_other["distance"])
         # Positive gap means claimed user looks less like self than another known user.
-        gap_component = np.clip((distance_gap + 0.65) / 1.8, 0.0, 1.0)
-        ratio_component = np.clip((ratio - 0.9) / 0.9, 0.0, 1.0)
-        impostor_risk = float(np.clip((0.65 * gap_component) + (0.35 * ratio_component), 0.0, 1.0))
+        gap_component = np.clip(distance_gap / 1.8, 0.0, 1.0)
+        ratio_component = np.clip((ratio - 1.0) / 0.8, 0.0, 1.0)
+        impostor_risk = float(np.clip((0.70 * gap_component) + (0.30 * ratio_component), 0.0, 1.0))
         hint = {
             "closest_other_user": best_other["user_id"],
             "claimed_user_distance": float(own_distance),
