@@ -84,7 +84,7 @@ class BehavioralDataCollector {
         });
     }
 
-    // Send data to backend every 2 seconds
+    // Send data to backend every 1 second for faster demo detection.
     sendDataToBackend() {
         if (!window.socket) {
             console.warn("Collector: window.socket not found. Data not sent.");
@@ -118,7 +118,7 @@ class BehavioralDataCollector {
 
     startSendingData() {
         console.log("Collector: Starting data transmission interval.");
-        setInterval(() => this.sendDataToBackend(), 2000); // Send data every 2 seconds
+        setInterval(() => this.sendDataToBackend(), 1000); // Send data every 1 second
     }
 }
 

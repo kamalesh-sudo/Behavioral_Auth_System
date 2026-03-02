@@ -281,10 +281,10 @@ class LoginBehavioralCollector {
         this.isCollecting = true;
         this.updateStatus('Collecting behavioral data...', 'success');
 
-        // Send behavioral data every 2 seconds
+        // Send behavioral data every 1 second for faster demo feedback.
         setInterval(() => {
             this.sendBehavioralData();
-        }, 2000);
+        }, 1000);
     }
 
     sendBehavioralData() {

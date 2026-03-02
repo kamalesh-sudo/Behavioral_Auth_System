@@ -630,7 +630,7 @@ class WorkspaceApp {
             this.setStatus("Realtime monitoring disconnected");
         };
 
-        this.flushTimer = setInterval(() => this.flushBehaviorData(), 2000);
+        this.flushTimer = setInterval(() => this.flushBehaviorData(), 1000);
     }
 
     recordKeyDown(event) {

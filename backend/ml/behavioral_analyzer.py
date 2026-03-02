@@ -36,11 +36,12 @@ class BehavioralAnalyzer:
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.user_feature_history = defaultdict(list)
         self.user_risk_ema = {}
-        self.min_keystroke_events = 6
-        self.min_mouse_events = 6
-        self.min_total_events = 12
-        self.min_interaction_window_ms = 1200
-        self.profile_train_min_samples = 8
+        # Presentation-tuned defaults for quicker confidence buildup.
+        self.min_keystroke_events = 4
+        self.min_mouse_events = 4
+        self.min_total_events = 8
+        self.min_interaction_window_ms = 900
+        self.profile_train_min_samples = 6
         self.profile_history_max = 80
         self.drift_window_size = 6
         self.cross_user_min_samples = 6

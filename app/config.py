@@ -21,8 +21,9 @@ class Settings(BaseSettings):
     frontend_dir: str = str((Path(__file__).resolve().parents[1] / "frontend"))
     upload_dir: str = str((Path(__file__).resolve().parents[1] / "uploads"))
 
-    high_risk_threshold: float = 0.7
-    anomaly_block_threshold: float = 0.7
+    # Presentation defaults: trigger risk decisions faster for live demos.
+    high_risk_threshold: float = 0.6
+    anomaly_block_threshold: float = 0.6
     max_behavior_history_limit: int = 100
     global_train_interval_seconds: int = 300
     global_train_min_samples: int = 30
