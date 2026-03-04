@@ -136,6 +136,8 @@ class AuthDatabaseTests(unittest.TestCase):
     def test_project_and_task_flow(self) -> None:
         owner = self.db.create_user('frank', 'secret123')
         self.assertTrue(owner['success'])
+        assignee = self.db.create_user('helen', 'secret123')
+        self.assertTrue(assignee['success'])
 
         project = self.db.create_project(owner['user_id'], 'Client Portal', 'Freelance project')
         self.assertTrue(project['success'])
@@ -152,10 +154,37 @@ class AuthDatabaseTests(unittest.TestCase):
         )
         self.assertTrue(created_task['success'])
 
+        assignee_task = self.db.create_task(
+            project_id=project['project_id'],
+            title='Implement dashboard widgets',
+            description='Build insights cards',
+            status='todo',
+            priority='medium',
+            assignee_id=assignee['user_id'],
+            due_date='2026-03-04',
+            created_by=owner['user_id'],
+        )
+        self.assertTrue(assignee_task['success'])
+
         tasks = self.db.get_tasks_for_project(project['project_id'])
         self.assertTrue(tasks['success'])
-        self.assertEqual(len(tasks['tasks']), 1)
-        self.assertEqual(tasks['tasks'][0]['title'], 'Build login screen')
+        self.assertEqual(len(tasks['tasks']), 2)
+
+        owner_projects = self.db.get_projects_for_user(owner['user_id'])
+        self.assertTrue(owner_projects['success'])
+        self.assertEqual(len(owner_projects['projects']), 1)
+
+        assignee_projects = self.db.get_projects_for_user(assignee['user_id'])
+        self.assertTrue(assignee_projects['success'])
+        self.assertEqual(len(assignee_projects['projects']), 1)
+        self.assertEqual(assignee_projects['projects'][0]['id'], project['project_id'])
+
+        assignee_scoped_tasks = self.db.get_tasks_for_project(project['project_id'], assignee_id=assignee['user_id'])
+        self.assertTrue(assignee_scoped_tasks['success'])
+        self.assertEqual(len(assignee_scoped_tasks['tasks']), 1)
+        self.assertEqual(assignee_scoped_tasks['tasks'][0]['title'], 'Implement dashboard widgets')
+
+        self.assertTrue(self.db.user_has_assigned_task_in_project(assignee['user_id'], project['project_id']))
 
         updated = self.db.update_task(created_task['task_id'], status='in_progress')
         self.assertTrue(updated['success'])

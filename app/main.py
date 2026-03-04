@@ -121,13 +121,17 @@ def require_roles(*roles: str):
     return _role_dependency
 
 
-def _ensure_project_access(principal: dict, project_id: int) -> dict:
+def _ensure_project_access(principal: dict, project_id: int, allow_assignee: bool = False) -> dict:
     project = db.get_project(project_id)
     if not project.get("success"):
         raise HTTPException(status_code=404, detail=project.get("error", "Project not found"))
-    if principal["role"] not in {"analyst", "admin"} and project["project"]["owner_id"] != principal["user_id"]:
-        raise HTTPException(status_code=403, detail="Cannot access another user's project")
-    return project["project"]
+    if principal["role"] in {"analyst", "admin"}:
+        return project["project"]
+    if project["project"]["owner_id"] == principal["user_id"]:
+        return project["project"]
+    if allow_assignee and db.user_has_assigned_task_in_project(principal["user_id"], project_id):
+        return project["project"]
+    raise HTTPException(status_code=403, detail="Cannot access another user's project")
 
 
 @route_aliases(["/health", "/api/health", "/api/v1/health"], methods=["GET"], tags=["health"])
@@ -580,8 +584,11 @@ async def create_project(payload: ProjectCreatePayload, principal: dict = Depend
     tags=["work"],
 )
 async def list_project_tasks(project_id: int, principal: dict = Depends(get_current_principal)) -> dict:
-    _ensure_project_access(principal, project_id)
-    result = db.get_tasks_for_project(project_id)
+    project = _ensure_project_access(principal, project_id, allow_assignee=True)
+    assignee_scope = None
+    if principal["role"] not in {"analyst", "admin"} and project["owner_id"] != principal["user_id"]:
+        assignee_scope = principal["user_id"]
+    result = db.get_tasks_for_project(project_id, assignee_id=assignee_scope)
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("error", "Failed to fetch tasks"))
     return result

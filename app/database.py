@@ -1013,12 +1013,13 @@ class AuthDatabase:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                SELECT id, name, description, created_at, updated_at
-                FROM projects
-                WHERE owner_id = ?
-                ORDER BY updated_at DESC, id DESC
+                SELECT DISTINCT p.id, p.name, p.description, p.created_at, p.updated_at
+                FROM projects p
+                LEFT JOIN tasks t ON t.project_id = p.id
+                WHERE p.owner_id = ? OR t.assignee_id = ?
+                ORDER BY p.updated_at DESC, p.id DESC
                 """,
-                (user_id,),
+                (user_id, user_id),
             )
             rows = cursor.fetchall()
             conn.close()
@@ -1037,6 +1038,25 @@ class AuthDatabase:
             }
         except Exception as exc:  # pylint: disable=broad-except
             return {"success": False, "error": str(exc)}
+
+    def user_has_assigned_task_in_project(self, user_id: int, project_id: int) -> bool:
+        try:
+            conn = self._connect()
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT 1
+                FROM tasks
+                WHERE project_id = ? AND assignee_id = ?
+                LIMIT 1
+                """,
+                (project_id, user_id),
+            )
+            row = cursor.fetchone()
+            conn.close()
+            return row is not None
+        except Exception:  # pylint: disable=broad-except
+            return False
 
     def get_project(self, project_id: int) -> dict:
         try:
@@ -1115,20 +1135,22 @@ class AuthDatabase:
         except Exception as exc:  # pylint: disable=broad-except
             return {"success": False, "error": str(exc)}
 
-    def get_tasks_for_project(self, project_id: int) -> dict:
+    def get_tasks_for_project(self, project_id: int, assignee_id: int | None = None) -> dict:
         try:
             conn = self._connect()
             cursor = conn.cursor()
-            cursor.execute(
-                """
+            query = """
                 SELECT t.id, t.title, t.description, t.status, t.priority, t.assignee_id, u.username, t.due_date, t.created_by, t.created_at, t.updated_at
                 FROM tasks t
                 LEFT JOIN users u ON t.assignee_id = u.id
                 WHERE t.project_id = ?
-                ORDER BY t.updated_at DESC, t.id DESC
-                """,
-                (project_id,),
-            )
+            """
+            params: list[int] = [project_id]
+            if assignee_id is not None:
+                query += " AND t.assignee_id = ?"
+                params.append(assignee_id)
+            query += " ORDER BY t.updated_at DESC, t.id DESC"
+            cursor.execute(query, tuple(params))
             rows = cursor.fetchall()
             conn.close()
             return {
