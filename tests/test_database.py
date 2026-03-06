@@ -173,6 +173,7 @@ class AuthDatabaseTests(unittest.TestCase):
         owner_projects = self.db.get_projects_for_user(owner['user_id'])
         self.assertTrue(owner_projects['success'])
         self.assertEqual(len(owner_projects['projects']), 1)
+        #
 
         assignee_projects = self.db.get_projects_for_user(assignee['user_id'])
         self.assertTrue(assignee_projects['success'])
