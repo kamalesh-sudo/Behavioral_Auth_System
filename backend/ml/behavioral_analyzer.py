@@ -48,6 +48,8 @@ class BehavioralAnalyzer:
         self.identity_margin_target = 1.0
         self.user_context_history = defaultdict(lambda: defaultdict(int))
         self.last_explanations = {}
+        self.profile_update_risk_threshold = 0.45
+        self.critical_risk_passthrough = 0.6
         self.pending_behavior_windows = defaultdict(lambda: {"keystrokeData": [], "mouseData": []})
         self.pending_behavior_max_events = 240
         self.pending_behavior_window_ms = 5000
@@ -253,8 +255,12 @@ class BehavioralAnalyzer:
         # If user-specific model exists, use it
         if user_id and user_id in self.user_profiles:
             risk, explanation = self.analyze_with_user_model(features, user_id, context=context)
-            self._append_user_history(user_id, features)
-            self._update_context_history(user_id, context)
+            if self._should_update_profile(user_id, risk, explanation):
+                self._append_user_history(user_id, features)
+                self._update_context_history(user_id, context)
+                explanation["profile_updated"] = True
+            else:
+                explanation["profile_updated"] = False
             self.last_explanations[user_id] = explanation
             return self._smoothed_risk(user_id, risk)
         
@@ -292,15 +298,15 @@ class BehavioralAnalyzer:
         global_risk = self.analyze_with_global_model(features)
         impostor_risk, impostor_hint = self._cross_user_impostor_risk(user_id, features, keys)
         separation_risk = self._identity_separation_risk(user_id, features, keys)
-        # Emphasize personal baseline + model while adding drift/context stability checks.
+        # Emphasize cross-user mismatch and identity separation to surface impostor use faster.
         combined = (
-            (0.30 * model_risk)
-            + (0.22 * distance_risk)
-            + (0.14 * drift_risk)
-            + (0.08 * global_risk)
-            + (0.05 * context_risk)
-            + (0.14 * impostor_risk)
-            + (0.07 * separation_risk)
+            (0.22 * model_risk)
+            + (0.24 * distance_risk)
+            + (0.10 * drift_risk)
+            + (0.06 * global_risk)
+            + (0.04 * context_risk)
+            + (0.24 * impostor_risk)
+            + (0.10 * separation_risk)
         )
         explanation = {
             "reason": "user_model",
@@ -632,9 +638,33 @@ class BehavioralAnalyzer:
         if previous is None:
             self.user_risk_ema[user_id] = risk
             return risk
+        if risk >= float(self.critical_risk_passthrough):
+            # Avoid hiding acute anomalies behind smoothing lag.
+            self.user_risk_ema[user_id] = risk
+            return risk
         ema = 0.65 * previous + 0.35 * risk
         self.user_risk_ema[user_id] = ema
         return float(np.clip(ema, 0.0, 1.0))
+
+    def _should_update_profile(self, user_id: str, risk: float, explanation: dict | None = None) -> bool:
+        profile = self.user_profiles.get(user_id)
+        if not profile:
+            return True
+        if not profile.get("is_model_trained"):
+            return True
+        components = (explanation or {}).get("components", {}) if isinstance(explanation, dict) else {}
+        model_risk = float(components.get("model", 0.0))
+        distance_risk = float(components.get("distance", 0.0))
+        impostor_risk = float(components.get("impostor", 0.0))
+        separation_risk = float(components.get("separation", 0.0))
+        if (
+            distance_risk >= 0.75
+            or model_risk >= 0.75
+            or impostor_risk >= 0.45
+            or separation_risk >= 0.55
+        ):
+            return False
+        return float(risk) <= float(self.profile_update_risk_threshold)
 
     def get_last_explanation(self, user_id: str | None) -> dict:
         if not user_id:

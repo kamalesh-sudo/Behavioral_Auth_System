@@ -1,22 +1,76 @@
-
-venv-3.9/
-# Python
+# ------------------------------
+# Python bytecode / caches
+# ------------------------------
 __pycache__/
 *.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# ------------------------------
+# Packaging / build outputs
+# ------------------------------
+build/
+dist/
+site/
 *.egg-info/
 *.egg
-*.log
-uploads/
+pip-wheel-metadata/
 
+# ------------------------------
 # Virtual environments
+# ------------------------------
+.venv/
 venv/
-
-# Environments created by Pipenv
+venv-*/
+ENV/
+env/
 *.venv
 
-# macOS metadata
-.DS_Store
+# ------------------------------
+# Environment and local secrets
+# ------------------------------
+.env
+.env.local
+.env.*.local
 
+# ------------------------------
+# Logs and runtime artifacts
+# ------------------------------
+*.log
+*.pid
+*.out
+*.err
+
+# ------------------------------
+# Local databases (new/untracked)
+# Note: already tracked DB files will remain tracked
+# until removed from git index explicitly.
+# ------------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+# ------------------------------
+# Project runtime folders
+# ------------------------------
+uploads/
+
+# ------------------------------
 # Frontend artifacts
+# ------------------------------
 frontend/node_modules/
 frontend/package-lock.json
+frontend/.cache/
+
+# ------------------------------
+# IDE / OS files
+# ------------------------------
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

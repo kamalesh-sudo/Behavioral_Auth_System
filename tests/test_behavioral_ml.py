@@ -92,6 +92,14 @@ class BehavioralMLTests(unittest.TestCase):
         self.assertGreater(risk_second, 0.1)
         self.assertNotEqual(explanation.get("reason"), "insufficient_signal")
 
+    def test_critical_risk_bypasses_smoothing_lag(self) -> None:
+        analyzer = BehavioralAnalyzer()
+        user_id = "u_smooth"
+        baseline = analyzer._smoothed_risk(user_id, 0.2)
+        critical = analyzer._smoothed_risk(user_id, 0.72)
+        self.assertAlmostEqual(baseline, 0.2, places=6)
+        self.assertAlmostEqual(critical, 0.72, places=6)
+
     def test_anomalous_pattern_increases_user_risk(self) -> None:
         analyzer = BehavioralAnalyzer()
         user_id = "u_profile"
@@ -178,6 +186,64 @@ class BehavioralMLTests(unittest.TestCase):
             float(impostor_expl["components"]["separation"]),
             float(same_user_expl["components"]["separation"]),
         )
+
+    def test_cross_user_impostor_can_reach_alert_threshold(self) -> None:
+        analyzer = BehavioralAnalyzer()
+        user_a = "user_a_alert"
+        user_b = "user_b_alert"
+        data_a = {
+            "keystrokeData": make_keystrokes(dwell=80, interval=140, count=14),
+            "mouseData": make_mouse(step=20, count=30),
+        }
+        data_b = {
+            "keystrokeData": make_keystrokes(dwell=260, interval=320, count=14),
+            "mouseData": make_mouse(step=90, count=30),
+        }
+
+        analyzer.create_user_profile(user_a, data_a)
+        analyzer.create_user_profile(user_b, data_b)
+        for _ in range(14):
+            analyzer.update_user_profile(user_a, data_a)
+            analyzer.update_user_profile(user_b, data_b)
+
+        impostor_risk = analyzer.analyze_real_time(
+            keystroke_data=data_b["keystrokeData"],
+            mouse_data=data_b["mouseData"],
+            user_id=user_a,
+        )
+        explanation = analyzer.get_last_explanation(user_a)
+
+        self.assertGreaterEqual(impostor_risk, 0.6)
+        self.assertGreater(float(explanation["components"]["impostor"]), 0.5)
+        self.assertFalse(bool(explanation.get("profile_updated", True)))
+
+    def test_suspicious_sample_does_not_update_trained_profile(self) -> None:
+        analyzer = BehavioralAnalyzer()
+        user_id = "u_guardrail"
+        normal_data = {
+            "keystrokeData": make_keystrokes(dwell=85, interval=210, count=14),
+            "mouseData": make_mouse(step=22, count=28),
+        }
+        analyzer.create_user_profile(user_id, normal_data)
+        for _ in range(14):
+            analyzer.update_user_profile(user_id, normal_data)
+
+        history_before = len(analyzer.user_feature_history[user_id])
+        suspicious = {
+            "keystrokeData": make_keystrokes(dwell=900, interval=1800, count=14),
+            "mouseData": make_mouse(step=220, count=28),
+        }
+        analyzer.analyze_real_time(
+            keystroke_data=suspicious["keystrokeData"],
+            mouse_data=suspicious["mouseData"],
+            user_id=user_id,
+        )
+        history_after = len(analyzer.user_feature_history[user_id])
+        explanation = analyzer.get_last_explanation(user_id)
+
+        self.assertEqual(history_after, history_before)
+        self.assertFalse(bool(explanation.get("profile_updated", True)))
+        self.assertGreater(float(explanation["components"]["distance"]), 0.75)
 
 
 if __name__ == "__main__":
