@@ -48,6 +48,9 @@ class BehavioralAnalyzer:
         self.identity_margin_target = 1.0
         self.user_context_history = defaultdict(lambda: defaultdict(int))
         self.last_explanations = {}
+        self.pending_behavior_windows = defaultdict(lambda: {"keystrokeData": [], "mouseData": []})
+        self.pending_behavior_max_events = 240
+        self.pending_behavior_window_ms = 5000
     
     def create_user_profile(self, user_id, behavioral_data):
         """Create initial user profile from behavioral data"""
@@ -222,6 +225,8 @@ class BehavioralAnalyzer:
             'keystrokeData': keystroke_data,
             'mouseData': mouse_data
         }
+        if user_id:
+            behavioral_data = self._merge_pending_behavior(user_id, behavioral_data)
 
         if not self._has_signal(behavioral_data):
             if user_id:
@@ -233,6 +238,8 @@ class BehavioralAnalyzer:
             return self._smoothed_risk(user_id, 0.05)
         
         features = self.extract_features(behavioral_data)
+        if user_id:
+            self._clear_pending_behavior(user_id)
         
         if not features:
             if user_id:
@@ -401,6 +408,54 @@ class BehavioralAnalyzer:
         if len(timestamps) < 2:
             return 0.0
         return max(timestamps) - min(timestamps)
+
+    @staticmethod
+    def _max_timestamp(events: list[dict]) -> float | None:
+        timestamps = [float(event.get("timestamp")) for event in events if event.get("timestamp") is not None]
+        if not timestamps:
+            return None
+        return max(timestamps)
+
+    def _trim_behavior_events(self, events: list[dict]) -> list[dict]:
+        if not events:
+            return []
+        ordered = [event for event in events if event.get("timestamp") is not None]
+        if not ordered:
+            return []
+        ordered.sort(key=lambda event: float(event.get("timestamp", 0)))
+        latest_ts = float(ordered[-1].get("timestamp", 0))
+        min_ts = latest_ts - float(self.pending_behavior_window_ms)
+        trimmed = [event for event in ordered if float(event.get("timestamp", 0)) >= min_ts]
+        if len(trimmed) > int(self.pending_behavior_max_events):
+            trimmed = trimmed[-int(self.pending_behavior_max_events):]
+        return trimmed
+
+    def _merge_pending_behavior(self, user_id: str, behavioral_data: dict) -> dict:
+        pending = self.pending_behavior_windows[user_id]
+        pending_keystrokes = pending.get("keystrokeData", []) or []
+        pending_mouse = pending.get("mouseData", []) or []
+        incoming_keystrokes = behavioral_data.get("keystrokeData", []) or []
+        incoming_mouse = behavioral_data.get("mouseData", []) or []
+
+        pending_latest = self._max_timestamp(pending_keystrokes + pending_mouse)
+        incoming_latest = self._max_timestamp(incoming_keystrokes + incoming_mouse)
+        if (
+            pending_latest is not None
+            and incoming_latest is not None
+            and (incoming_latest + 250.0) < pending_latest
+        ):
+            # Frontend timestamp counters can restart on a new page/session.
+            pending_keystrokes = []
+            pending_mouse = []
+
+        merged_keystrokes = self._trim_behavior_events(pending_keystrokes + incoming_keystrokes)
+        merged_mouse = self._trim_behavior_events(pending_mouse + incoming_mouse)
+        merged = {"keystrokeData": merged_keystrokes, "mouseData": merged_mouse}
+        self.pending_behavior_windows[user_id] = merged
+        return merged
+
+    def _clear_pending_behavior(self, user_id: str) -> None:
+        self.pending_behavior_windows[user_id] = {"keystrokeData": [], "mouseData": []}
 
     def _append_user_history(self, user_id: str, features: dict) -> None:
         history = self.user_feature_history[user_id]

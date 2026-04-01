@@ -66,6 +66,32 @@ class BehavioralMLTests(unittest.TestCase):
         risk = analyzer.analyze_real_time(keystroke_data=burst, mouse_data=[], user_id="u_burst")
         self.assertLessEqual(risk, 0.1)
 
+    def test_short_windows_accumulate_before_scoring(self) -> None:
+        analyzer = BehavioralAnalyzer()
+        user_id = "u_accum"
+
+        chunk_one = make_keystrokes(base_ts=0, dwell=80, interval=220, count=3)
+        chunk_two = make_keystrokes(base_ts=700, dwell=80, interval=220, count=3)
+        mouse_one = make_mouse(base_ts=0, step=80, count=6)
+        mouse_two = make_mouse(base_ts=700, step=80, count=6)
+
+        risk_first = analyzer.analyze_real_time(
+            keystroke_data=chunk_one,
+            mouse_data=mouse_one,
+            user_id=user_id,
+        )
+        risk_second = analyzer.analyze_real_time(
+            keystroke_data=chunk_two,
+            mouse_data=mouse_two,
+            user_id=user_id,
+        )
+        explanation = analyzer.get_last_explanation(user_id)
+
+        self.assertLessEqual(risk_first, 0.1)
+        self.assertGreater(risk_second, risk_first)
+        self.assertGreater(risk_second, 0.1)
+        self.assertNotEqual(explanation.get("reason"), "insufficient_signal")
+
     def test_anomalous_pattern_increases_user_risk(self) -> None:
         analyzer = BehavioralAnalyzer()
         user_id = "u_profile"
