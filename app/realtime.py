@@ -221,6 +221,11 @@ class RealtimeBehaviorService:
 
         risk_score = self.analyzer.analyze_real_time(keystroke_data, mouse_data, username, context=context)
         risk_explanation = self.analyzer.get_last_explanation(username)
+        debug_requested = bool(
+            self.settings.debug_model_io
+            or (isinstance(context, dict) and bool(context.get("debug_model_io")))
+        )
+        model_io = self.analyzer.get_last_debug_io(username) if debug_requested else {}
         self._record_event(
             "behavioral_scored",
             username=username,
@@ -292,6 +297,8 @@ class RealtimeBehaviorService:
             "riskExplanation": risk_explanation,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+        if debug_requested:
+            response["modelIO"] = model_io
         if risk_score > self.settings.high_risk_threshold:
             response["alert"] = {
                 "level": "HIGH",

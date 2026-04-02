@@ -48,6 +48,7 @@ class BehavioralAnalyzer:
         self.identity_margin_target = 1.0
         self.user_context_history = defaultdict(lambda: defaultdict(int))
         self.last_explanations = {}
+        self.last_debug_io = {}
         self.profile_update_risk_threshold = 0.45
         self.critical_risk_passthrough = 0.6
         self.pending_behavior_windows = defaultdict(lambda: {"keystrokeData": [], "mouseData": []})
@@ -223,10 +224,11 @@ class BehavioralAnalyzer:
     
     def analyze_real_time(self, keystroke_data, mouse_data, user_id=None, context=None):
         """Analyze behavioral data in real-time"""
-        behavioral_data = {
+        incoming_behavioral_data = {
             'keystrokeData': keystroke_data,
             'mouseData': mouse_data
         }
+        behavioral_data = incoming_behavioral_data
         if user_id:
             behavioral_data = self._merge_pending_behavior(user_id, behavioral_data)
 
@@ -237,6 +239,14 @@ class BehavioralAnalyzer:
                     "components": {"fallback": 0.05},
                     "top_deviations": [],
                 }
+                self._store_debug_io(
+                    user_id=user_id,
+                    incoming_behavioral_data=incoming_behavioral_data,
+                    analyzed_behavioral_data=behavioral_data,
+                    features=None,
+                    risk=0.05,
+                    explanation=self.last_explanations[user_id],
+                )
             return self._smoothed_risk(user_id, 0.05)
         
         features = self.extract_features(behavioral_data)
@@ -250,6 +260,14 @@ class BehavioralAnalyzer:
                     "components": {"fallback": 0.05},
                     "top_deviations": [],
                 }
+                self._store_debug_io(
+                    user_id=user_id,
+                    incoming_behavioral_data=incoming_behavioral_data,
+                    analyzed_behavioral_data=behavioral_data,
+                    features=None,
+                    risk=0.05,
+                    explanation=self.last_explanations[user_id],
+                )
             return self._smoothed_risk(user_id, 0.05)
         
         # If user-specific model exists, use it
@@ -262,6 +280,14 @@ class BehavioralAnalyzer:
             else:
                 explanation["profile_updated"] = False
             self.last_explanations[user_id] = explanation
+            self._store_debug_io(
+                user_id=user_id,
+                incoming_behavioral_data=incoming_behavioral_data,
+                analyzed_behavioral_data=behavioral_data,
+                features=features,
+                risk=risk,
+                explanation=explanation,
+            )
             return self._smoothed_risk(user_id, risk)
         
         # Otherwise, use global model
@@ -276,6 +302,14 @@ class BehavioralAnalyzer:
                 "components": {"global": float(risk), "context": float(self._context_novelty_risk(user_id, context))},
                 "top_deviations": [],
             }
+            self._store_debug_io(
+                user_id=user_id,
+                incoming_behavioral_data=incoming_behavioral_data,
+                analyzed_behavioral_data=behavioral_data,
+                features=features,
+                risk=risk,
+                explanation=self.last_explanations[user_id],
+            )
         return self._smoothed_risk(user_id, risk)
     
     def analyze_with_user_model(self, features, user_id, context=None):
@@ -670,3 +704,51 @@ class BehavioralAnalyzer:
         if not user_id:
             return {"reason": "unknown", "components": {}, "top_deviations": []}
         return self.last_explanations.get(user_id, {"reason": "none", "components": {}, "top_deviations": []})
+
+    def _store_debug_io(
+        self,
+        user_id: str,
+        incoming_behavioral_data: dict,
+        analyzed_behavioral_data: dict,
+        features: dict | None,
+        risk: float,
+        explanation: dict,
+    ) -> None:
+        incoming_keystrokes = incoming_behavioral_data.get("keystrokeData", []) or []
+        incoming_mouse = incoming_behavioral_data.get("mouseData", []) or []
+        analyzed_keystrokes = analyzed_behavioral_data.get("keystrokeData", []) or []
+        analyzed_mouse = analyzed_behavioral_data.get("mouseData", []) or []
+        feature_map = features or {}
+        feature_keys = sorted(feature_map.keys())
+        self.last_debug_io[user_id] = {
+            "input": {
+                "incoming_behavioral_data": incoming_behavioral_data,
+                "analyzed_behavioral_data": analyzed_behavioral_data,
+                "incoming_event_counts": {
+                    "keystrokes": int(len(incoming_keystrokes)),
+                    "mouse": int(len(incoming_mouse)),
+                    "total": int(len(incoming_keystrokes) + len(incoming_mouse)),
+                },
+                "analyzed_event_counts": {
+                    "keystrokes": int(len(analyzed_keystrokes)),
+                    "mouse": int(len(analyzed_mouse)),
+                    "total": int(len(analyzed_keystrokes) + len(analyzed_mouse)),
+                },
+                "incoming_interaction_window_ms": float(self._interaction_window_ms(incoming_keystrokes, incoming_mouse)),
+                "analyzed_interaction_window_ms": float(self._interaction_window_ms(analyzed_keystrokes, analyzed_mouse)),
+            },
+            "model_input": {
+                "feature_keys": feature_keys,
+                "feature_vector": [float(feature_map.get(k, 0.0)) for k in feature_keys],
+                "feature_map": {k: float(feature_map[k]) for k in feature_keys},
+            },
+            "model_output": {
+                "risk_score": float(np.clip(risk, 0.0, 1.0)),
+                "explanation": explanation,
+            },
+        }
+
+    def get_last_debug_io(self, user_id: str | None) -> dict:
+        if not user_id:
+            return {}
+        return self.last_debug_io.get(user_id, {})

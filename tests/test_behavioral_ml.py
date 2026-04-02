@@ -100,6 +100,31 @@ class BehavioralMLTests(unittest.TestCase):
         self.assertAlmostEqual(baseline, 0.2, places=6)
         self.assertAlmostEqual(critical, 0.72, places=6)
 
+    def test_debug_io_captures_raw_model_input_and_output(self) -> None:
+        analyzer = BehavioralAnalyzer()
+        user_id = "u_debug"
+        keystrokes = make_keystrokes(dwell=85, interval=210)
+        mouse = make_mouse(step=22)
+
+        risk = analyzer.analyze_real_time(
+            keystroke_data=keystrokes,
+            mouse_data=mouse,
+            user_id=user_id,
+        )
+        debug_io = analyzer.get_last_debug_io(user_id)
+
+        self.assertIn("input", debug_io)
+        self.assertIn("model_input", debug_io)
+        self.assertIn("model_output", debug_io)
+        self.assertEqual(int(debug_io["input"]["incoming_event_counts"]["keystrokes"]), len(keystrokes))
+        self.assertEqual(int(debug_io["input"]["incoming_event_counts"]["mouse"]), len(mouse))
+        self.assertAlmostEqual(float(debug_io["model_output"]["risk_score"]), float(risk), places=6)
+        self.assertGreater(len(debug_io["model_input"]["feature_keys"]), 10)
+        self.assertEqual(
+            len(debug_io["model_input"]["feature_keys"]),
+            len(debug_io["model_input"]["feature_vector"]),
+        )
+
     def test_anomalous_pattern_increases_user_risk(self) -> None:
         analyzer = BehavioralAnalyzer()
         user_id = "u_profile"

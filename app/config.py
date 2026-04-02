@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     global_train_interval_seconds: int = 300
     global_train_min_samples: int = 30
     global_train_max_samples: int = 5000
+    debug_model_io: bool = False
     jwt_secret_key: str = ""
     jwt_access_token_expire_minutes: int = 120
     initial_admin_username: str = "admin"
