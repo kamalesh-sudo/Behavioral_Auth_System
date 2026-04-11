@@ -9,6 +9,9 @@ class LoginBehavioralCollector {
         this.isCollecting = false;
         this.sessionTerminated = false;
         this.pendingAuthPayload = null;
+        this.wsReconnectTimer = null;
+        this.wsTokenInUse = null;
+        this.lastKeyEventTimestamp = 0;
         this.deviceFingerprint = localStorage.getItem('device_fingerprint') || this.generateDeviceFingerprint();
         localStorage.setItem('device_fingerprint', this.deviceFingerprint);
 
@@ -20,6 +23,7 @@ class LoginBehavioralCollector {
         this.startDataCollection();
         this.updateStatus('Ready. Login to start secure monitoring.', 'warning');
         this.checkBackendHealth();
+        this.connectWebSocket();
     }
 
     getWebSocketToken() {
@@ -114,53 +118,113 @@ class LoginBehavioralCollector {
         document.addEventListener('keyup', (e) => this.recordKeyUp(e));
         document.addEventListener('mousemove', (e) => this.recordMouseMove(e));
         document.addEventListener('click', (e) => this.recordClick(e));
+        document.addEventListener('input', (e) => this.recordInputFallback(e), true);
+        document.addEventListener('change', (e) => this.recordInputFallback(e), true);
     }
 
-    connectWebSocket() {
+    connectWebSocket(forceReconnect = false) {
         const wsUrl = this.getWebSocketUrl();
         const wsToken = this.getWebSocketToken();
+        const riskSignal = document.getElementById('riskSignal');
+
+        if (this.wsReconnectTimer) {
+            clearTimeout(this.wsReconnectTimer);
+            this.wsReconnectTimer = null;
+        }
+
+        if (this.socket) {
+            const isOpenOrConnecting = this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING;
+            const tokenChanged = Boolean(wsToken && this.wsTokenInUse && wsToken !== this.wsTokenInUse);
+            if (forceReconnect || tokenChanged) {
+                try {
+                    this.socket.close(1000, 'token refresh');
+                } catch (error) {
+                    // no-op
+                }
+            } else if (isOpenOrConnecting) {
+                return;
+            }
+        }
 
         if (!wsToken) {
             this.updateStatus('Waiting for login token', 'warning');
+            if (riskSignal) {
+                riskSignal.textContent = 'Signal: websocket not authenticated yet';
+            }
             return;
         }
 
         try {
             localStorage.setItem('ws_url', wsUrl);
-            this.socket = new WebSocket(wsUrl);
+            const socket = new WebSocket(wsUrl);
+            this.socket = socket;
 
-            this.socket.onopen = () => {
+            socket.onopen = () => {
+                if (this.socket !== socket) {
+                    return;
+                }
                 console.log('WebSocket connected');
                 this.updateStatus('Connected', 'success');
+                this.wsTokenInUse = wsToken;
+                if (riskSignal) {
+                    riskSignal.textContent = 'Signal: connected, waiting for activity';
+                }
 
                 // Send authentication token
-                this.socket.send(JSON.stringify({
+                socket.send(JSON.stringify({
                     token: wsToken
                 }));
 
                 if (this.pendingAuthPayload) {
-                    this.socket.send(JSON.stringify(this.pendingAuthPayload));
+                    socket.send(JSON.stringify(this.pendingAuthPayload));
                     this.pendingAuthPayload = null;
                 }
             };
 
-            this.socket.onmessage = (event) => {
+            socket.onmessage = (event) => {
+                if (this.socket !== socket) {
+                    return;
+                }
                 this.handleWebSocketMessage(event);
             };
 
-            this.socket.onerror = (error) => {
+            socket.onerror = (error) => {
+                if (this.socket !== socket) {
+                    return;
+                }
                 console.error('WebSocket error:', error);
                 this.updateStatus('Connection error', 'error');
                 this.showAlert(`WebSocket connection failed: ${wsUrl}`, 'error');
+                if (riskSignal) {
+                    riskSignal.textContent = 'Signal: websocket error';
+                }
             };
 
-            this.socket.onclose = () => {
+            socket.onclose = (event) => {
+                if (this.socket !== socket) {
+                    return;
+                }
                 console.log('WebSocket disconnected');
+                this.socket = null;
+                this.wsTokenInUse = null;
                 this.updateStatus('Disconnected', 'warning');
+                if (riskSignal) {
+                    if (event && event.code === 1008) {
+                        riskSignal.textContent = 'Signal: websocket auth rejected';
+                    } else {
+                        riskSignal.textContent = 'Signal: websocket disconnected';
+                    }
+                }
+                if (!this.sessionTerminated && !(event && event.code === 1008) && this.getWebSocketToken()) {
+                    this.wsReconnectTimer = setTimeout(() => this.connectWebSocket(), 1500);
+                }
             };
         } catch (error) {
             console.error('Failed to connect WebSocket:', error);
             this.updateStatus('Failed to connect', 'error');
+            if (riskSignal) {
+                riskSignal.textContent = 'Signal: websocket connection failed';
+            }
         }
     }
 
@@ -170,7 +234,7 @@ class LoginBehavioralCollector {
 
             switch (data.type) {
                 case 'analysis_result':
-                    this.updateRiskScore(data.riskScore);
+                    this.handleRealtimeAnalysis(data);
                     if (data.alert) {
                         this.showAlert(data.alert.message, data.alert.level.toLowerCase());
                     }
@@ -198,6 +262,10 @@ class LoginBehavioralCollector {
         this.isCollecting = false;
         this.keystrokeData = [];
         this.mouseData = [];
+        if (this.wsReconnectTimer) {
+            clearTimeout(this.wsReconnectTimer);
+            this.wsReconnectTimer = null;
+        }
         this.updateStatus('Session terminated', 'error');
         this.showAlert(reason, 'error');
         localStorage.removeItem('user_id');
@@ -212,6 +280,7 @@ class LoginBehavioralCollector {
         if (!this.isCollecting) return;
 
         const timestamp = performance.now();
+        this.lastKeyEventTimestamp = timestamp;
         this.keystrokeData.push({
             type: 'keydown',
             keyCode: event.keyCode,
@@ -225,6 +294,7 @@ class LoginBehavioralCollector {
         if (!this.isCollecting) return;
 
         const timestamp = performance.now();
+        this.lastKeyEventTimestamp = timestamp;
         const keyDownEvent = this.keystrokeData.find(
             k => k.keyCode === event.keyCode && k.type === 'keydown' && !k.matched
         );
@@ -240,6 +310,38 @@ class LoginBehavioralCollector {
                 sessionId: this.sessionId
             });
         }
+    }
+
+    recordInputFallback(event) {
+        if (!this.isCollecting) return;
+        const target = event && event.target ? event.target : null;
+        const isTextInput = target && (
+            target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable
+        );
+        if (!isTextInput) return;
+
+        const now = performance.now();
+        if ((now - this.lastKeyEventTimestamp) < 180) {
+            return;
+        }
+        this.lastKeyEventTimestamp = now;
+        this.keystrokeData.push({
+            type: 'keydown',
+            keyCode: 0,
+            key: 'InputEvent',
+            timestamp: now,
+            sessionId: this.sessionId
+        });
+        this.keystrokeData.push({
+            type: 'keyup',
+            keyCode: 0,
+            key: 'InputEvent',
+            timestamp: now + 12,
+            dwellTime: 12,
+            sessionId: this.sessionId
+        });
     }
 
     recordMouseMove(event) {
@@ -302,17 +404,12 @@ class LoginBehavioralCollector {
 
         const payload = {
             type: 'behavioral_data',
-            userId: document.getElementById('username').value,
             sessionId: this.sessionId,
             keystrokeData: this.keystrokeData,
             mouseData: this.mouseData,
             context: this.buildContext('login_monitoring'),
             timestamp: Date.now()
         };
-
-        if (!payload.userId) {
-            return;
-        }
 
         this.socket.send(JSON.stringify(payload));
 
@@ -386,6 +483,7 @@ class LoginBehavioralCollector {
                 localStorage.setItem('auth_token', accessToken);
                 localStorage.setItem('ws_auth_token', accessToken);
                 localStorage.setItem('device_fingerprint', this.deviceFingerprint);
+                this.connectWebSocket(true);
 
                 // Redirect to dashboard after 1 second
                 setTimeout(() => {
@@ -454,10 +552,11 @@ class LoginBehavioralCollector {
         passwordInput.type = type;
     }
 
-    updateRiskScore(score) {
+    updateRiskScore(score, explanation = {}) {
         this.currentRiskScore = score;
         const riskValue = document.getElementById('riskValue');
         const riskFill = document.getElementById('riskFill');
+        const riskSignal = document.getElementById('riskSignal');
 
         // Update value
         riskValue.textContent = (score * 100).toFixed(1) + '%';
@@ -474,6 +573,34 @@ class LoginBehavioralCollector {
         } else {
             riskFill.classList.add('high');
         }
+
+        if (riskSignal) {
+            const components = (explanation && typeof explanation === 'object') ? (explanation.components || {}) : {};
+            const coverage = Number(components.modality_coverage);
+            if (!Number.isFinite(coverage)) {
+                riskSignal.textContent = 'Signal: unknown coverage';
+            } else if (coverage >= 0.99) {
+                riskSignal.textContent = `Signal: full (typing + mouse) ${Math.round(coverage * 100)}%`;
+            } else if (coverage >= 0.49) {
+                riskSignal.textContent = `Signal: partial (typing-only or mouse-only) ${Math.round(coverage * 100)}%`;
+            } else {
+                riskSignal.textContent = `Signal: sparse ${Math.round(coverage * 100)}%`;
+            }
+        }
+    }
+
+    handleRealtimeAnalysis(data) {
+        const effectiveUser = String(data.effectiveUser || '').trim();
+        const typedUsername = String((document.getElementById('username') || {}).value || '').trim();
+        if (typedUsername && effectiveUser && typedUsername !== effectiveUser) {
+            const riskSignal = document.getElementById('riskSignal');
+            if (riskSignal) {
+                riskSignal.textContent = `Signal: stream is bound to ${effectiveUser}`;
+            }
+            this.updateStatus(`Realtime stream is currently mapped to ${effectiveUser}`, 'warning');
+            return;
+        }
+        this.updateRiskScore(data.riskScore, data.riskExplanation || {});
     }
 
     updateStatus(message, type) {

@@ -5,6 +5,7 @@ import asyncio
 from collections import deque
 from datetime import datetime, timezone
 
+import anyio
 from fastapi import WebSocket
 from starlette.websockets import WebSocketDisconnect
 
@@ -41,6 +42,7 @@ class RealtimeBehaviorService:
         self.recent_events: deque[dict] = deque(maxlen=200)
         self.last_global_train_at: datetime | None = None
         self.last_global_train_count: int = 0
+        self._analyzer_lock = asyncio.Lock()
 
     @staticmethod
     def _extract_ws_ip(websocket: WebSocket) -> str | None:
@@ -219,13 +221,19 @@ class RealtimeBehaviorService:
             )
             return
 
-        risk_score = self.analyzer.analyze_real_time(keystroke_data, mouse_data, username, context=context)
-        risk_explanation = self.analyzer.get_last_explanation(username)
         debug_requested = bool(
             self.settings.debug_model_io
             or (isinstance(context, dict) and bool(context.get("debug_model_io")))
         )
-        model_io = self.analyzer.get_last_debug_io(username) if debug_requested else {}
+        async with self._analyzer_lock:
+            risk_score, risk_explanation, model_io = await anyio.to_thread.run_sync(
+                self._analyze_behavior_window_sync,
+                keystroke_data,
+                mouse_data,
+                username,
+                context,
+                debug_requested,
+            )
         self._record_event(
             "behavioral_scored",
             username=username,
@@ -293,6 +301,7 @@ class RealtimeBehaviorService:
         response = {
             "type": "analysis_result",
             "sessionId": session_id,
+            "effectiveUser": username,
             "riskScore": risk_score,
             "riskExplanation": risk_explanation,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -367,9 +376,13 @@ class RealtimeBehaviorService:
             return
 
         profile_created = False
-        if username not in self.analyzer.user_profiles:
-            self.analyzer.create_user_profile(username, {"keystrokeData": [], "mouseData": []})
-            profile_created = True
+        async with self._analyzer_lock:
+            if username not in self.analyzer.user_profiles:
+                self.analyzer.create_user_profile(username, {"keystrokeData": [], "mouseData": []})
+                profile_created = True
+            profile = self.analyzer.user_profiles.get(username, {})
+            profile_model_trained = bool(profile.get("is_model_trained"))
+            profile_samples = len(self.analyzer.user_feature_history.get(username, []))
         user_info = self.db.get_user(username)
         if user_info.get("success") and device_fingerprint:
             user_id = user_info["user"]["id"]
@@ -382,14 +395,13 @@ class RealtimeBehaviorService:
                     reason=f"New websocket device seen (ip={client_ip or 'unknown'})",
                     session_id=session_id,
                 )
-        profile = self.analyzer.user_profiles.get(username, {})
         self._record_event(
             "profile_state",
             username=username,
             session_id=session_id,
             created=profile_created,
-            model_trained=bool(profile.get("is_model_trained")),
-            samples=len(self.analyzer.user_feature_history.get(username, [])),
+            model_trained=profile_model_trained,
+            samples=profile_samples,
         )
 
         await websocket.send_text(json.dumps({"type": "authentication_success", "userId": username}))
@@ -432,17 +444,33 @@ class RealtimeBehaviorService:
             )
             return
 
-        self.analyzer.update_user_profile(username, behavioral_data, feedback)
-        profile = self.analyzer.user_profiles.get(username, {})
+        async with self._analyzer_lock:
+            await anyio.to_thread.run_sync(self.analyzer.update_user_profile, username, behavioral_data, feedback)
+            profile = self.analyzer.user_profiles.get(username, {})
+            profile_model_trained = bool(profile.get("is_model_trained"))
+            profile_samples = len(self.analyzer.user_feature_history.get(username, []))
         self._record_event(
             "profile_updated",
             username=username,
             session_id=session_id,
             feedback=feedback,
-            model_trained=bool(profile.get("is_model_trained")),
-            samples=len(self.analyzer.user_feature_history.get(username, [])),
+            model_trained=profile_model_trained,
+            samples=profile_samples,
         )
         await websocket.send_text(json.dumps({"type": "feedback_received", "message": "User profile updated"}))
+
+    def _analyze_behavior_window_sync(
+        self,
+        keystroke_data: list[dict],
+        mouse_data: list[dict],
+        username: str,
+        context: dict | None,
+        debug_requested: bool,
+    ) -> tuple[float, dict, dict]:
+        risk_score = self.analyzer.analyze_real_time(keystroke_data, mouse_data, username, context=context)
+        risk_explanation = self.analyzer.get_last_explanation(username)
+        model_io = self.analyzer.get_last_debug_io(username) if debug_requested else {}
+        return risk_score, risk_explanation, model_io
 
     async def _terminate_session(self, session_id: str, username: str, risk_score: float, reason: str) -> None:
         payload = {

@@ -1,6 +1,80 @@
 import numpy as np
 
 
+def calculate_keystroke_dynamics(keystroke_data: list[dict]) -> dict:
+    """
+    Build per-window keystroke timing dynamics for identity discrimination.
+    Returns dwell, flight and inter-key latency series used to form a rhythm profile.
+    """
+    if not keystroke_data:
+        return {
+            "ordered_events": [],
+            "keydown_events": [],
+            "keyup_events": [],
+            "dwell_times": [],
+            "flight_times": [],
+            "inter_key_latencies": [],
+            "rhythm_profile": {},
+        }
+
+    ordered = sorted(
+        [event for event in keystroke_data if event.get("timestamp") is not None],
+        key=lambda event: float(event.get("timestamp", 0.0)),
+    )
+    keydown_events = [event for event in ordered if event.get("type") == "keydown"]
+    keyup_events = [event for event in ordered if event.get("type") == "keyup"]
+
+    open_presses: dict[str, list[float]] = {}
+    dwell_times: list[float] = []
+    for event in ordered:
+        event_type = event.get("type")
+        key = str(event.get("key", ""))
+        ts = float(event.get("timestamp", 0.0))
+        if event_type == "keydown":
+            open_presses.setdefault(key, []).append(ts)
+        elif event_type == "keyup":
+            dwell = None
+            raw_dwell = event.get("dwellTime")
+            if raw_dwell is not None and np.isfinite(raw_dwell):
+                dwell = float(raw_dwell)
+            else:
+                queue = open_presses.get(key) or []
+                if queue:
+                    dwell = ts - float(queue.pop(0))
+            if dwell is not None and 0.0 <= dwell <= 3000.0:
+                dwell_times.append(float(dwell))
+
+    down_ts = sorted(float(event.get("timestamp", 0.0)) for event in keydown_events)
+    up_ts = sorted(float(event.get("timestamp", 0.0)) for event in keyup_events)
+
+    flight_times: list[float] = []
+    inter_key_latencies: list[float] = []
+    for i in range(min(len(down_ts) - 1, len(up_ts))):
+        flight = down_ts[i + 1] - up_ts[i]
+        if -500.0 <= flight <= 3000.0:
+            flight_times.append(float(flight))
+        ikl = down_ts[i + 1] - down_ts[i]
+        if 0.0 <= ikl <= 3000.0:
+            inter_key_latencies.append(float(ikl))
+
+    rhythm_profile = {
+        "dwell_median": float(np.median(dwell_times)) if dwell_times else 0.0,
+        "flight_median": float(np.median(flight_times)) if flight_times else 0.0,
+        "ikl_median": float(np.median(inter_key_latencies)) if inter_key_latencies else 0.0,
+        "ikl_std": float(np.std(inter_key_latencies)) if inter_key_latencies else 0.0,
+    }
+
+    return {
+        "ordered_events": ordered,
+        "keydown_events": keydown_events,
+        "keyup_events": keyup_events,
+        "dwell_times": dwell_times,
+        "flight_times": flight_times,
+        "inter_key_latencies": inter_key_latencies,
+        "rhythm_profile": rhythm_profile,
+    }
+
+
 class BehavioralFeatureExtractor:
     def __init__(self):
         self.keystroke_features = {}
@@ -36,53 +110,20 @@ class BehavioralFeatureExtractor:
         if not keystroke_data:
             return self.get_default_keystroke_features()
 
-        ordered = sorted(
-            [e for e in keystroke_data if "timestamp" in e],
-            key=lambda e: e.get("timestamp", 0),
-        )
+        dynamics = calculate_keystroke_dynamics(keystroke_data)
+        ordered = dynamics["ordered_events"]
         if len(ordered) < 6:
             return self.get_default_keystroke_features()
 
-        keydown_events = [e for e in ordered if e.get("type") == "keydown"]
-        keyup_events = [e for e in ordered if e.get("type") == "keyup"]
+        keydown_events = dynamics["keydown_events"]
+        keyup_events = dynamics["keyup_events"]
         if len(keydown_events) < 3 or len(keyup_events) < 3:
             return self.get_default_keystroke_features()
 
-        # Match keydown -> keyup by key and order to calculate dwell robustly.
-        open_presses: dict[str, list[float]] = {}
-        dwell_times: list[float] = []
-        for event in ordered:
-            event_type = event.get("type")
-            key = str(event.get("key", ""))
-            ts = float(event.get("timestamp", 0))
-            if event_type == "keydown":
-                open_presses.setdefault(key, []).append(ts)
-            elif event_type == "keyup":
-                if "dwellTime" in event and np.isfinite(event.get("dwellTime")):
-                    dwell = float(event["dwellTime"])
-                else:
-                    queue = open_presses.get(key) or []
-                    if not queue:
-                        continue
-                    start = queue.pop(0)
-                    dwell = ts - start
-                if 0 <= dwell <= 3000:
-                    dwell_times.append(dwell)
-
-        down_ts = [float(e.get("timestamp", 0)) for e in keydown_events]
-        up_ts = [float(e.get("timestamp", 0)) for e in keyup_events]
-        down_ts.sort()
-        up_ts.sort()
-
-        flight_times = []
-        ikl_latencies = []
-        for i in range(min(len(down_ts) - 1, len(up_ts))):
-            flight = down_ts[i + 1] - up_ts[i]
-            if -500 <= flight <= 3000:
-                flight_times.append(flight)
-            ikl = down_ts[i + 1] - down_ts[i]
-            if 0 <= ikl <= 3000:
-                ikl_latencies.append(ikl)
+        dwell_times = dynamics["dwell_times"]
+        flight_times = dynamics["flight_times"]
+        ikl_latencies = dynamics["inter_key_latencies"]
+        rhythm_profile = dynamics["rhythm_profile"]
 
         total_ms = max(1.0, float(ordered[-1]["timestamp"]) - float(ordered[0]["timestamp"]))
         total_s = total_ms / 1000.0
@@ -105,6 +146,10 @@ class BehavioralFeatureExtractor:
         pauses = [v for v in ikl_latencies if v > 700]
         features["pause_ratio"] = float(len(pauses) / max(1, len(ikl_latencies)))
         features["rhythm_consistency"] = float(np.std(ikl_latencies)) if ikl_latencies else 0.0
+        features["rhythm_profile_ikl_std"] = float(rhythm_profile.get("ikl_std", 0.0))
+        features["rhythm_profile_dwell_median"] = float(rhythm_profile.get("dwell_median", 0.0))
+        features["rhythm_profile_flight_median"] = float(rhythm_profile.get("flight_median", 0.0))
+        features["rhythm_profile_ikl_median"] = float(rhythm_profile.get("ikl_median", 0.0))
 
         # Identity-sensitive typing structure features.
         key_sequence = [str(e.get("key", "")) for e in keydown_events]
@@ -287,6 +332,10 @@ class BehavioralFeatureExtractor:
             "error_rate": 0.0,
             "pause_ratio": 0.0,
             "rhythm_consistency": 0.0,
+            "rhythm_profile_ikl_std": 0.0,
+            "rhythm_profile_dwell_median": 0.0,
+            "rhythm_profile_flight_median": 0.0,
+            "rhythm_profile_ikl_median": 0.0,
             "dwell_outlier_rate": 0.0,
             "transition_entropy": 0.0,
             "repeat_key_ratio": 0.0,

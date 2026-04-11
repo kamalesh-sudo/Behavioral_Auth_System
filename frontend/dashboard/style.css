@@ -72,6 +72,13 @@ body {
     border-radius: 8px;
     padding: 8px 12px;
     border: 1px solid #93c5fd;
+    display: grid;
+    gap: 2px;
+}
+
+.risk-coverage-text {
+    font-size: 11px;
+    color: #334155;
 }
 
 .task-create, .board {

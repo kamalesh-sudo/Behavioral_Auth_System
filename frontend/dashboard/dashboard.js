@@ -16,6 +16,9 @@ class WorkspaceApp {
         this.mouseData = [];
         this.riskScore = 0;
         this.flushTimer = null;
+        this.wsReconnectTimer = null;
+        this.wsManuallyClosed = false;
+        this.lastKeyEventTimestamp = 0;
         this.taskSearchQuery = "";
         this.taskPriorityFilter = "all";
         this.taskStatusFilter = "all";
@@ -112,6 +115,8 @@ class WorkspaceApp {
         document.addEventListener("keyup", (e) => this.recordKeyUp(e));
         document.addEventListener("mousemove", (e) => this.recordMouseMove(e));
         document.addEventListener("click", (e) => this.recordClick(e));
+        document.addEventListener("input", (e) => this.recordInputFallback(e), true);
+        document.addEventListener("change", (e) => this.recordInputFallback(e), true);
     }
 
     canManageSecurity() {
@@ -168,6 +173,31 @@ class WorkspaceApp {
 
     setStatus(message) {
         document.getElementById("statusBar").textContent = message;
+    }
+
+    setRiskCoverageText(message) {
+        const el = document.getElementById("riskCoverageText");
+        if (!el) return;
+        el.textContent = message;
+    }
+
+    updateRiskCoverage(explanation = {}) {
+        const el = document.getElementById("riskCoverageText");
+        if (!el) return;
+        const components = explanation && typeof explanation === "object" ? (explanation.components || {}) : {};
+        const coverage = Number(components.modality_coverage);
+        if (!Number.isFinite(coverage)) {
+            el.textContent = "Signal: unknown coverage";
+            return;
+        }
+        const pct = Math.round(coverage * 100);
+        if (coverage >= 0.99) {
+            el.textContent = `Signal: full (typing + mouse) ${pct}%`;
+        } else if (coverage >= 0.49) {
+            el.textContent = `Signal: partial (typing-only or mouse-only) ${pct}%`;
+        } else {
+            el.textContent = `Signal: sparse ${pct}%`;
+        }
     }
 
     async refreshSecurityLists() {
@@ -600,40 +630,89 @@ class WorkspaceApp {
     }
 
     initRealtime() {
-        this.socket = new WebSocket(this.wsUrl());
-        this.socket.onopen = () => {
-            this.socket.send(JSON.stringify({ token: this.token }));
-            this.socket.send(
+        if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+            return;
+        }
+        if (this.wsReconnectTimer) {
+            clearTimeout(this.wsReconnectTimer);
+            this.wsReconnectTimer = null;
+        }
+        const socket = new WebSocket(this.wsUrl());
+        this.socket = socket;
+        socket.onopen = () => {
+            if (this.socket !== socket) {
+                return;
+            }
+            socket.send(JSON.stringify({ token: this.token }));
+            socket.send(
                 JSON.stringify({
                     type: "user_authentication",
-                    userId: this.username,
                     sessionId: this.sessionId,
                     context: this.buildContext("workspace_auth"),
                 })
             );
             this.setStatus("Realtime monitoring active");
+            this.setRiskCoverageText("Signal: connected, waiting for activity");
         };
-        this.socket.onmessage = (event) => {
+        socket.onmessage = (event) => {
+            if (this.socket !== socket) {
+                return;
+            }
             const data = JSON.parse(event.data);
             if (data.type === "analysis_result") {
+                const effectiveUser = String(data.effectiveUser || "").trim();
+                if (effectiveUser && effectiveUser !== String(this.username || "").trim()) {
+                    this.setStatus(`Identity mismatch (${effectiveUser}). Reconnecting stream...`);
+                    this.setRiskCoverageText("Signal: identity mismatch");
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.close(1000, "identity_mismatch");
+                    }
+                    return;
+                }
                 this.riskScore = data.riskScore;
                 document.getElementById("riskScore").textContent = Number(this.riskScore).toFixed(2);
+                this.updateRiskCoverage(data.riskExplanation || {});
                 if (data.alert) {
                     this.setStatus(`Risk alert: ${data.alert.message}`);
                 }
+            } else if (data.type === "error") {
+                this.setStatus(data.message || "Realtime error");
+                this.setRiskCoverageText("Signal: realtime error");
             } else if (data.type === "session_terminated") {
                 alert(data.reason || "Session terminated by security policy.");
                 window.location.href = "../login/login.html";
             }
         };
-        this.socket.onerror = () => {
+        socket.onerror = () => {
+            if (this.socket !== socket) {
+                return;
+            }
             this.setStatus("Realtime monitoring disconnected");
+            this.setRiskCoverageText("Signal: websocket error");
+        };
+        socket.onclose = (event) => {
+            if (this.socket !== socket) {
+                return;
+            }
+            this.socket = null;
+            this.setStatus("Realtime monitoring disconnected");
+            if (event && event.code === 1008) {
+                this.setRiskCoverageText("Signal: websocket auth rejected");
+                return;
+            }
+            this.setRiskCoverageText("Signal: disconnected, reconnecting...");
+            if (!this.wsManuallyClosed) {
+                this.wsReconnectTimer = setTimeout(() => this.initRealtime(), 1500);
+            }
         };
 
-        this.flushTimer = setInterval(() => this.flushBehaviorData(), 1000);
+        if (!this.flushTimer) {
+            this.flushTimer = setInterval(() => this.flushBehaviorData(), 1000);
+        }
     }
 
     recordKeyDown(event) {
+        this.lastKeyEventTimestamp = performance.now();
         this.keystrokeData.push({
             type: "keydown",
             keyCode: event.keyCode,
@@ -645,11 +724,43 @@ class WorkspaceApp {
 
     recordKeyUp(event) {
         const timestamp = performance.now();
+        this.lastKeyEventTimestamp = timestamp;
         this.keystrokeData.push({
             type: "keyup",
             keyCode: event.keyCode,
             key: event.key,
             timestamp,
+            sessionId: this.sessionId,
+        });
+    }
+
+    recordInputFallback(event) {
+        const target = event && event.target ? event.target : null;
+        const isTextInput = target && (
+            target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable
+        );
+        if (!isTextInput) return;
+
+        const now = performance.now();
+        if ((now - this.lastKeyEventTimestamp) < 180) {
+            return;
+        }
+        this.lastKeyEventTimestamp = now;
+        this.keystrokeData.push({
+            type: "keydown",
+            keyCode: 0,
+            key: "InputEvent",
+            timestamp: now,
+            sessionId: this.sessionId,
+        });
+        this.keystrokeData.push({
+            type: "keyup",
+            keyCode: 0,
+            key: "InputEvent",
+            timestamp: now + 12,
+            dwellTime: 12,
             sessionId: this.sessionId,
         });
     }
@@ -688,7 +799,6 @@ class WorkspaceApp {
         this.socket.send(
             JSON.stringify({
                 type: "behavioral_data",
-                userId: this.username,
                 sessionId: this.sessionId,
                 keystrokeData: this.keystrokeData,
                 mouseData: this.mouseData,
