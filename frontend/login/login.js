@@ -12,6 +12,16 @@ class LoginBehavioralCollector {
         this.wsReconnectTimer = null;
         this.wsTokenInUse = null;
         this.lastKeyEventTimestamp = 0;
+        this.collectionTimer = null;
+        this.behaviorListenersEnabled = false;
+        this.boundBehaviorHandlers = {
+            keydown: (event) => this.recordKeyDown(event),
+            keyup: (event) => this.recordKeyUp(event),
+            mousemove: (event) => this.recordMouseMove(event),
+            click: (event) => this.recordClick(event),
+            input: (event) => this.recordInputFallback(event),
+            change: (event) => this.recordInputFallback(event),
+        };
         this.deviceFingerprint = localStorage.getItem('device_fingerprint') || this.generateDeviceFingerprint();
         localStorage.setItem('device_fingerprint', this.deviceFingerprint);
 
@@ -20,10 +30,10 @@ class LoginBehavioralCollector {
 
     init() {
         this.setupEventListeners();
-        this.startDataCollection();
+        this.hideRiskWidget();
+        this.resetRiskScoreDisplay();
         this.updateStatus('Ready. Login to start secure monitoring.', 'warning');
         this.checkBackendHealth();
-        this.connectWebSocket();
     }
 
     getWebSocketToken() {
@@ -112,14 +122,45 @@ class LoginBehavioralCollector {
 
         // Password toggle
         document.getElementById('togglePassword').addEventListener('click', () => this.togglePassword());
+    }
 
-        // Behavioral data collection
-        document.addEventListener('keydown', (e) => this.recordKeyDown(e));
-        document.addEventListener('keyup', (e) => this.recordKeyUp(e));
-        document.addEventListener('mousemove', (e) => this.recordMouseMove(e));
-        document.addEventListener('click', (e) => this.recordClick(e));
-        document.addEventListener('input', (e) => this.recordInputFallback(e), true);
-        document.addEventListener('change', (e) => this.recordInputFallback(e), true);
+    enableBehavioralListeners() {
+        if (this.behaviorListenersEnabled) {
+            return;
+        }
+        document.addEventListener('keydown', this.boundBehaviorHandlers.keydown);
+        document.addEventListener('keyup', this.boundBehaviorHandlers.keyup);
+        document.addEventListener('mousemove', this.boundBehaviorHandlers.mousemove);
+        document.addEventListener('click', this.boundBehaviorHandlers.click);
+        document.addEventListener('input', this.boundBehaviorHandlers.input, true);
+        document.addEventListener('change', this.boundBehaviorHandlers.change, true);
+        this.behaviorListenersEnabled = true;
+    }
+
+    disableBehavioralListeners() {
+        if (!this.behaviorListenersEnabled) {
+            return;
+        }
+        document.removeEventListener('keydown', this.boundBehaviorHandlers.keydown);
+        document.removeEventListener('keyup', this.boundBehaviorHandlers.keyup);
+        document.removeEventListener('mousemove', this.boundBehaviorHandlers.mousemove);
+        document.removeEventListener('click', this.boundBehaviorHandlers.click);
+        document.removeEventListener('input', this.boundBehaviorHandlers.input, true);
+        document.removeEventListener('change', this.boundBehaviorHandlers.change, true);
+        this.behaviorListenersEnabled = false;
+    }
+
+    enableBehaviorCollection() {
+        this.enableBehavioralListeners();
+        this.startDataCollection();
+        this.showRiskWidget();
+    }
+
+    disableBehaviorCollection() {
+        this.stopDataCollection();
+        this.disableBehavioralListeners();
+        this.keystrokeData = [];
+        this.mouseData = [];
     }
 
     connectWebSocket(forceReconnect = false) {
@@ -155,8 +196,9 @@ class LoginBehavioralCollector {
         }
 
         try {
-            localStorage.setItem('ws_url', wsUrl);
-            const socket = new WebSocket(wsUrl);
+            const wsUrlWithToken = `${wsUrl}${wsUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(wsToken)}`;
+            localStorage.setItem('ws_url', wsUrlWithToken);
+            const socket = new WebSocket(wsUrlWithToken);
             this.socket = socket;
 
             socket.onopen = () => {
@@ -259,9 +301,9 @@ class LoginBehavioralCollector {
 
     terminateSession(reason) {
         this.sessionTerminated = true;
-        this.isCollecting = false;
-        this.keystrokeData = [];
-        this.mouseData = [];
+        this.disableBehaviorCollection();
+        this.hideRiskWidget();
+        this.resetRiskScoreDisplay();
         if (this.wsReconnectTimer) {
             clearTimeout(this.wsReconnectTimer);
             this.wsReconnectTimer = null;
@@ -273,6 +315,37 @@ class LoginBehavioralCollector {
         localStorage.removeItem('session_id');
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
             this.socket.close();
+        }
+    }
+
+    showRiskWidget() {
+        const riskContainer = document.getElementById('riskScoreContainer');
+        if (riskContainer) {
+            riskContainer.classList.remove('hidden');
+        }
+    }
+
+    hideRiskWidget() {
+        const riskContainer = document.getElementById('riskScoreContainer');
+        if (riskContainer) {
+            riskContainer.classList.add('hidden');
+        }
+    }
+
+    resetRiskScoreDisplay() {
+        const riskValue = document.getElementById('riskValue');
+        const riskFill = document.getElementById('riskFill');
+        const riskSignal = document.getElementById('riskSignal');
+        this.currentRiskScore = 0;
+        if (riskValue) {
+            riskValue.textContent = '--';
+        }
+        if (riskFill) {
+            riskFill.style.width = '0%';
+            riskFill.classList.remove('low', 'medium', 'high');
+        }
+        if (riskSignal) {
+            riskSignal.textContent = 'Signal: waiting for authenticated session';
         }
     }
 
@@ -380,13 +453,25 @@ class LoginBehavioralCollector {
     }
 
     startDataCollection() {
+        if (this.collectionTimer) {
+            clearInterval(this.collectionTimer);
+            this.collectionTimer = null;
+        }
         this.isCollecting = true;
         this.updateStatus('Collecting behavioral data...', 'success');
 
         // Send behavioral data every 1 second for faster demo feedback.
-        setInterval(() => {
+        this.collectionTimer = setInterval(() => {
             this.sendBehavioralData();
         }, 1000);
+    }
+
+    stopDataCollection() {
+        this.isCollecting = false;
+        if (this.collectionTimer) {
+            clearInterval(this.collectionTimer);
+            this.collectionTimer = null;
+        }
     }
 
     sendBehavioralData() {
@@ -435,7 +520,7 @@ class LoginBehavioralCollector {
         loginButton.querySelector('.button-text').textContent = 'Authenticating...';
 
         try {
-            const response = await fetch(`${this.getApiBaseUrl()}/api/start-session`, {
+            const startSessionResponse = await fetch(`${this.getApiBaseUrl()}/api/start-session`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -443,57 +528,61 @@ class LoginBehavioralCollector {
                 body: JSON.stringify({ username, password, device_fingerprint: this.deviceFingerprint })
             });
 
-            const result = await response.json();
-
-                if (result.success) {
-                    let accessToken = result.access_token || null;
-                    let resolvedRole = result.role || 'user';
-                    if (!accessToken) {
-                        const loginResponse = await fetch(`${this.getApiBaseUrl()}/api/login`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            username,
-                            password,
-                            risk_score: this.currentRiskScore || 0,
-                            device_fingerprint: this.deviceFingerprint
-                        })
-                        });
-                        const loginResult = await loginResponse.json();
-                        accessToken = loginResult.access_token || null;
-                        resolvedRole = loginResult.role || resolvedRole;
-                    }
-
-                if (!accessToken) {
-                    this.showAlert('Login succeeded but no access token was returned. Restart backend services and try again.', 'error');
-                    loginButton.disabled = false;
-                    loginButton.querySelector('.button-text').textContent = 'Start Session';
-                    return;
-                }
-
-                this.showAlert('Session started! Redirecting to calibration...', 'success');
-
-                // Store user info
-                localStorage.setItem('user_id', result.user_id);
-                localStorage.setItem('username', result.username);
-                localStorage.setItem('user_role', resolvedRole);
-                localStorage.setItem('session_id', this.sessionId);
-                localStorage.setItem('auth_token', accessToken);
-                localStorage.setItem('ws_auth_token', accessToken);
-                localStorage.setItem('device_fingerprint', this.deviceFingerprint);
-                this.connectWebSocket(true);
-
-                // Redirect to dashboard after 1 second
-                setTimeout(() => {
-                    window.location.href = '../dashboard/index.html';
-                }, 1000);
-            } else {
-                this.showAlert(result.detail || result.error || 'Failed to start session', 'error');
+            const startSessionResult = await startSessionResponse.json();
+            if (!startSessionResponse.ok || !startSessionResult.success) {
+                this.showAlert(startSessionResult.detail || startSessionResult.error || 'Failed to start session', 'error');
                 loginButton.disabled = false;
                 loginButton.querySelector('.button-text').textContent = 'Start Session';
+                return;
             }
+
+            const loginResponse = await fetch(`${this.getApiBaseUrl()}/api/login`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username,
+                    password,
+                    risk_score: this.currentRiskScore || 0,
+                    device_fingerprint: this.deviceFingerprint
+                })
+            });
+            const loginResult = await loginResponse.json();
+            if (!loginResponse.ok || !loginResult.success) {
+                this.showAlert(loginResult.detail || loginResult.error || 'Login failed', 'error');
+                loginButton.disabled = false;
+                loginButton.querySelector('.button-text').textContent = 'Start Session';
+                return;
+            }
+
+            const accessToken = loginResult.access_token || null;
+            const resolvedRole = loginResult.role || startSessionResult.role || 'user';
+            if (!accessToken) {
+                this.showAlert('Login succeeded but no access token was returned. Restart backend services and try again.', 'error');
+                loginButton.disabled = false;
+                loginButton.querySelector('.button-text').textContent = 'Start Session';
+                return;
+            }
+
+            this.showAlert('Session started! Redirecting to dashboard...', 'success');
+
+            // Store user info
+            localStorage.setItem('user_id', loginResult.user_id || startSessionResult.user_id);
+            localStorage.setItem('username', loginResult.username || startSessionResult.username || username);
+            localStorage.setItem('user_role', resolvedRole);
+            localStorage.setItem('session_id', this.sessionId);
+            localStorage.setItem('auth_token', accessToken);
+            localStorage.setItem('ws_auth_token', accessToken);
+            localStorage.setItem('device_fingerprint', this.deviceFingerprint);
+
+            this.enableBehaviorCollection();
+            this.connectWebSocket(true);
+
+            // Redirect to dashboard after 1 second
+            setTimeout(() => {
+                window.location.href = '../dashboard/index.html';
+            }, 1000);
         } catch (error) {
             console.error('Login error:', error);
             const apiBaseUrl = this.getApiBaseUrl();

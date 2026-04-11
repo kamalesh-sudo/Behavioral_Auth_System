@@ -328,19 +328,21 @@ class BehavioralAnalyzer:
 
         distance_risk, top_deviations = self._profile_distance_risk(user_id, features, keys)
         drift_risk = self._temporal_drift_risk(user_id, features, keys)
+        profile_z_spike_risk, profile_z_spikes = self._profile_specific_spike_risk(user_id, features)
         context_risk = self._context_novelty_risk(user_id, context)
         global_risk = self.analyze_with_global_model(features)
         impostor_risk, impostor_hint = self._cross_user_impostor_risk(user_id, features, keys)
         separation_risk = self._identity_separation_risk(user_id, features, keys)
-        # Emphasize cross-user mismatch and identity separation to surface impostor use faster.
+        # Emphasize identity mismatch while explicitly tracking user-specific >2σ spikes.
         combined = (
-            (0.22 * model_risk)
-            + (0.24 * distance_risk)
-            + (0.10 * drift_risk)
-            + (0.06 * global_risk)
+            (0.20 * model_risk)
+            + (0.22 * distance_risk)
+            + (0.09 * drift_risk)
+            + (0.05 * global_risk)
             + (0.04 * context_risk)
-            + (0.24 * impostor_risk)
-            + (0.10 * separation_risk)
+            + (0.22 * impostor_risk)
+            + (0.08 * separation_risk)
+            + (0.10 * profile_z_spike_risk)
         )
         explanation = {
             "reason": "user_model",
@@ -352,9 +354,12 @@ class BehavioralAnalyzer:
                 "context": float(context_risk),
                 "impostor": float(impostor_risk),
                 "separation": float(separation_risk),
+                "profile_z_spike": float(profile_z_spike_risk),
             },
             "top_deviations": top_deviations,
         }
+        if profile_z_spikes:
+            explanation["profile_z_spikes"] = profile_z_spikes
         if impostor_hint:
             explanation["impostor_hint"] = impostor_hint
         return float(np.clip(combined, 0.0, 1.0)), explanation
@@ -554,6 +559,53 @@ class BehavioralAnalyzer:
         drift_z = np.abs((recent_mean - previous_mean) / reference_std)
         return float(np.clip(self._aggregate_shift(drift_z) / 4.0, 0.0, 1.0))
 
+    def _profile_specific_spike_risk(self, user_id: str, features: dict) -> tuple[float, list[dict]]:
+        """
+        Profile-specific normalization gate:
+        flag risk when jerk or dwell variability features are >2σ from user's own baseline.
+        """
+        history = self.user_feature_history[user_id]
+        if len(history) < max(5, int(self.profile_train_min_samples)):
+            return 0.0, []
+
+        monitored_features = ("jerk_mean", "jerk_p95", "dwell_variance", "dwell_std")
+        spikes = []
+        severity = 0.0
+        for feature_name in monitored_features:
+            historical_values = []
+            for sample in history:
+                value = sample.get(feature_name)
+                if value is None:
+                    continue
+                value = float(value)
+                if np.isfinite(value):
+                    historical_values.append(value)
+            if len(historical_values) < 3:
+                continue
+
+            baseline_mean = float(np.mean(historical_values))
+            baseline_std = float(np.std(historical_values))
+            if baseline_std < 1e-6:
+                continue
+
+            current_value = float(features.get(feature_name, 0.0))
+            if not np.isfinite(current_value):
+                continue
+            z_score = float(abs((current_value - baseline_mean) / baseline_std))
+            if z_score > 2.0:
+                spikes.append(
+                    {
+                        "feature": feature_name,
+                        "z_score": z_score,
+                        "value": current_value,
+                        "baseline_mean": baseline_mean,
+                        "baseline_std": baseline_std,
+                    }
+                )
+                severity = max(severity, float(np.clip((z_score - 2.0) / 2.0, 0.0, 1.0)))
+
+        return severity, spikes
+
     @staticmethod
     def _distance_to_profile(features: dict, keys: list[str], history: list[dict]) -> float:
         if len(history) < 3:
@@ -691,11 +743,13 @@ class BehavioralAnalyzer:
         distance_risk = float(components.get("distance", 0.0))
         impostor_risk = float(components.get("impostor", 0.0))
         separation_risk = float(components.get("separation", 0.0))
+        profile_z_spike_risk = float(components.get("profile_z_spike", 0.0))
         if (
             distance_risk >= 0.75
             or model_risk >= 0.75
             or impostor_risk >= 0.45
             or separation_risk >= 0.55
+            or profile_z_spike_risk >= 0.45
         ):
             return False
         return float(risk) <= float(self.profile_update_risk_threshold)

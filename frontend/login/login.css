@@ -261,6 +261,10 @@ input::placeholder {
     color: var(--text-secondary);
 }
 
+.hidden {
+    display: none !important;
+}
+
 .login-button {
     width: 100%;
     padding: 16px;

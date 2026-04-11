@@ -1,4 +1,5 @@
 import asyncio
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -35,6 +36,7 @@ db = get_db()
 realtime_service = RealtimeBehaviorService(settings, db)
 app = FastAPI(title=settings.app_name)
 router = APIRouter()
+AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
 
 app.add_middleware(
     CORSMiddleware,
@@ -90,6 +92,28 @@ def _extract_client_ip(request: Request) -> str | None:
     if request.client:
         return request.client.host
     return None
+
+
+def _extract_websocket_token(websocket: WebSocket) -> str | None:
+    token = (websocket.query_params.get("token") or "").strip()
+    if token:
+        return token
+    authorization = websocket.headers.get("authorization")
+    if not authorization:
+        return None
+    parts = authorization.split(" ", 1)
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return None
+    token = parts[1].strip()
+    return token or None
+
+
+def _is_valid_websocket_token(token: str) -> bool:
+    try:
+        verify_access_token(token, settings)
+        return True
+    except (ValueError, RuntimeError):
+        return bool(AUTH_TOKEN and token == AUTH_TOKEN)
 
 
 async def get_current_principal(authorization: str | None = Header(default=None, alias="Authorization")) -> dict:
@@ -694,6 +718,13 @@ async def start_background_tasks() -> None:
 
 @app.websocket("/ws/behavioral")
 async def behavioral_websocket(websocket: WebSocket) -> None:
+    token = _extract_websocket_token(websocket)
+    if not token:
+        await websocket.close(code=1008, reason="Authentication token missing")
+        return
+    if not _is_valid_websocket_token(token):
+        await websocket.close(code=1008, reason="Invalid authentication token")
+        return
     await realtime_service.handle_client(websocket)
 
 frontend_dir = Path(settings.frontend_dir)

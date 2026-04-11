@@ -18,6 +18,7 @@ class WorkspaceApp {
         this.flushTimer = null;
         this.wsReconnectTimer = null;
         this.wsManuallyClosed = false;
+        this.behaviorCollectionEnabled = true;
         this.lastKeyEventTimestamp = 0;
         this.taskSearchQuery = "";
         this.taskPriorityFilter = "all";
@@ -98,6 +99,7 @@ class WorkspaceApp {
         document.getElementById("blockDeviceBtn").addEventListener("click", () => this.blockDevice());
         document.getElementById("refreshSecurityEventsBtn").addEventListener("click", () => this.loadSecurityEvents());
         document.getElementById("refreshRealtimeBtn").addEventListener("click", () => this.loadRealtimeMonitor());
+        document.getElementById("logoutBtn").addEventListener("click", () => this.logout());
         document.getElementById("taskTitleInput").addEventListener("keydown", (event) => {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -179,6 +181,57 @@ class WorkspaceApp {
         const el = document.getElementById("riskCoverageText");
         if (!el) return;
         el.textContent = message;
+    }
+
+    resetRiskDisplay() {
+        this.riskScore = 0;
+        const scoreEl = document.getElementById("riskScore");
+        if (scoreEl) {
+            scoreEl.textContent = "0.00";
+        }
+        this.setRiskCoverageText("Signal: waiting for data");
+    }
+
+    cleanupRealtime() {
+        this.behaviorCollectionEnabled = false;
+        this.keystrokeData = [];
+        this.mouseData = [];
+        if (this.wsReconnectTimer) {
+            clearTimeout(this.wsReconnectTimer);
+            this.wsReconnectTimer = null;
+        }
+        if (this.flushTimer) {
+            clearInterval(this.flushTimer);
+            this.flushTimer = null;
+        }
+        if (this.socket) {
+            try {
+                this.socket.close(1000, "logout");
+            } catch (error) {
+                // ignore cleanup close errors
+            }
+        }
+        this.socket = null;
+        this.resetRiskDisplay();
+    }
+
+    clearSessionState() {
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("ws_auth_token");
+        localStorage.removeItem("user_id");
+        localStorage.removeItem("username");
+        localStorage.removeItem("user_role");
+        localStorage.removeItem("session_id");
+        document.cookie = "auth_token=; Max-Age=0; path=/";
+        document.cookie = "ws_auth_token=; Max-Age=0; path=/";
+    }
+
+    logout() {
+        this.wsManuallyClosed = true;
+        this.cleanupRealtime();
+        this.clearSessionState();
+        this.setStatus("Logged out");
+        window.location.href = "../login/login.html";
     }
 
     updateRiskCoverage(explanation = {}) {
@@ -626,7 +679,11 @@ class WorkspaceApp {
 
     wsUrl() {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        return `${protocol}//${window.location.host}/ws/behavioral`;
+        const base = `${protocol}//${window.location.host}/ws/behavioral`;
+        if (!this.token) {
+            return base;
+        }
+        return `${base}?token=${encodeURIComponent(this.token)}`;
     }
 
     initRealtime() {
@@ -680,7 +737,7 @@ class WorkspaceApp {
                 this.setRiskCoverageText("Signal: realtime error");
             } else if (data.type === "session_terminated") {
                 alert(data.reason || "Session terminated by security policy.");
-                window.location.href = "../login/login.html";
+                this.logout();
             }
         };
         socket.onerror = () => {
@@ -712,6 +769,7 @@ class WorkspaceApp {
     }
 
     recordKeyDown(event) {
+        if (!this.behaviorCollectionEnabled) return;
         this.lastKeyEventTimestamp = performance.now();
         this.keystrokeData.push({
             type: "keydown",
@@ -723,6 +781,7 @@ class WorkspaceApp {
     }
 
     recordKeyUp(event) {
+        if (!this.behaviorCollectionEnabled) return;
         const timestamp = performance.now();
         this.lastKeyEventTimestamp = timestamp;
         this.keystrokeData.push({
@@ -735,6 +794,7 @@ class WorkspaceApp {
     }
 
     recordInputFallback(event) {
+        if (!this.behaviorCollectionEnabled) return;
         const target = event && event.target ? event.target : null;
         const isTextInput = target && (
             target.tagName === "INPUT" ||
@@ -766,6 +826,7 @@ class WorkspaceApp {
     }
 
     recordMouseMove(event) {
+        if (!this.behaviorCollectionEnabled) return;
         if (this.mouseData.length > 0) {
             const last = this.mouseData[this.mouseData.length - 1];
             if (performance.now() - last.timestamp < 50) {
@@ -782,6 +843,7 @@ class WorkspaceApp {
     }
 
     recordClick(event) {
+        if (!this.behaviorCollectionEnabled) return;
         this.mouseData.push({
             type: "click",
             x: event.clientX,
@@ -793,6 +855,7 @@ class WorkspaceApp {
     }
 
     flushBehaviorData() {
+        if (!this.behaviorCollectionEnabled) return;
         if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
         if (this.keystrokeData.length === 0 && this.mouseData.length === 0) return;
 

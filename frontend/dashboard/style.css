@@ -66,6 +66,12 @@ body {
     align-items: center;
 }
 
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .risk-widget {
     background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
     color: #1e3a8a;

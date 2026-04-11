@@ -35,12 +35,37 @@ def make_mouse(base_ts: int = 0, step: int = 25, count: int = 20) -> list[dict]:
     return events
 
 
+def make_irregular_keystrokes(base_ts: int = 0, count: int = 12) -> list[dict]:
+    events = []
+    ts = base_ts
+    dwell_pattern = [35, 280, 55, 340, 45, 260]
+    interval_pattern = [120, 520, 140, 620, 110, 560]
+    keys = ["t", "h", "e", "i", "n", "v"]
+    for i in range(count):
+        key = keys[i % len(keys)]
+        dwell = dwell_pattern[i % len(dwell_pattern)]
+        interval = interval_pattern[i % len(interval_pattern)]
+        key_code = ord(key.upper())
+        events.append({"type": "keydown", "key": key, "keyCode": key_code, "timestamp": ts})
+        events.append(
+            {"type": "keyup", "key": key, "keyCode": key_code, "timestamp": ts + dwell, "dwellTime": dwell}
+        )
+        ts += interval
+    return events
+
+
 class BehavioralMLTests(unittest.TestCase):
     def test_feature_extractor_outputs_finite_values(self) -> None:
         extractor = BehavioralFeatureExtractor()
         features = extractor.extract_keystroke_features(make_keystrokes())
         features.update(extractor.extract_mouse_features(make_mouse()))
         self.assertGreater(len(features), 10)
+        self.assertIn("curvature_mean", features)
+        self.assertIn("tangential_acceleration_mean", features)
+        self.assertIn("path_curvature_deviation_mean", features)
+        self.assertIn("shortcut_ctrl_v_latency_mean", features)
+        self.assertIn("digraph_th_latency_mean", features)
+        self.assertIn("deletion_selection_ratio", features)
         for value in features.values():
             self.assertTrue(value == value)  # not NaN
             self.assertNotEqual(value, float("inf"))
@@ -269,6 +294,36 @@ class BehavioralMLTests(unittest.TestCase):
         self.assertEqual(history_after, history_before)
         self.assertFalse(bool(explanation.get("profile_updated", True)))
         self.assertGreater(float(explanation["components"]["distance"]), 0.75)
+
+    def test_profile_specific_zscore_spike_flags_dwell_variance_or_jerk(self) -> None:
+        analyzer = BehavioralAnalyzer()
+        user_id = "u_profile_spike"
+        baseline = {
+            "keystrokeData": make_keystrokes(dwell=85, interval=210, count=14),
+            "mouseData": make_mouse(step=22, count=28),
+        }
+        analyzer.create_user_profile(user_id, baseline)
+        for _ in range(12):
+            analyzer.update_user_profile(user_id, baseline)
+
+        suspicious = {
+            "keystrokeData": make_irregular_keystrokes(count=14),
+            "mouseData": make_mouse(step=160, count=28),
+        }
+        analyzer.analyze_real_time(
+            keystroke_data=suspicious["keystrokeData"],
+            mouse_data=suspicious["mouseData"],
+            user_id=user_id,
+        )
+        explanation = analyzer.get_last_explanation(user_id)
+        components = explanation.get("components", {})
+
+        self.assertIn("profile_z_spike", components)
+        self.assertGreaterEqual(float(components.get("profile_z_spike", 0.0)), 0.0)
+        spikes = explanation.get("profile_z_spikes", [])
+        if spikes:
+            monitored = {entry.get("feature") for entry in spikes}
+            self.assertTrue({"jerk_mean", "jerk_p95", "dwell_variance", "dwell_std"} & monitored)
 
 
 if __name__ == "__main__":

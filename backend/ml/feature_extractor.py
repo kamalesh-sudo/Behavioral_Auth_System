@@ -105,6 +105,134 @@ class BehavioralFeatureExtractor:
             f"{prefix}_p95": float(np.percentile(arr, 95)),
         }
 
+    @staticmethod
+    def _normalize_key(key: str | None) -> str:
+        if key is None:
+            return ""
+        normalized = str(key).strip()
+        aliases = {
+            "ctrl": "control",
+            "ctl": "control",
+            "del": "delete",
+            "cmd": "meta",
+        }
+        lowered = normalized.lower()
+        lowered = aliases.get(lowered, lowered)
+        return lowered
+
+    def _extract_rhythm_buffer_features(self, ordered_events: list[dict]) -> dict:
+        """
+        Build cognitive signature metrics:
+        - Common digraph latency profile (TH/HE/IN)
+        - Shortcut latency for Ctrl/Cmd + V
+        - Deletion strategy mix (Backspace/Delete/Selection)
+        """
+        features: dict[str, float] = {}
+        digraph_targets = ("th", "he", "in")
+        digraph_latencies = {digraph: [] for digraph in digraph_targets}
+
+        keydown_events = [
+            event for event in ordered_events
+            if event.get("type") == "keydown" and event.get("timestamp") is not None
+        ]
+        letter_downs: list[tuple[str, float]] = []
+        for event in keydown_events:
+            key = self._normalize_key(event.get("key"))
+            if len(key) == 1 and key.isalpha():
+                letter_downs.append((key, float(event.get("timestamp", 0.0))))
+
+        for i in range(1, len(letter_downs)):
+            prev_key, prev_ts = letter_downs[i - 1]
+            cur_key, cur_ts = letter_downs[i]
+            latency = cur_ts - prev_ts
+            digraph = f"{prev_key}{cur_key}"
+            if digraph in digraph_latencies and 0.0 <= latency <= 1500.0:
+                digraph_latencies[digraph].append(float(latency))
+
+        all_digraph_samples: list[float] = []
+        for digraph in digraph_targets:
+            samples = digraph_latencies[digraph]
+            features.update(self._safe_stats(samples, f"digraph_{digraph}_latency"))
+            features[f"digraph_{digraph}_samples"] = float(len(samples))
+            all_digraph_samples.extend(samples)
+        features.update(self._safe_stats(all_digraph_samples, "digraph_latency"))
+
+        control_active = False
+        shift_active = False
+        control_down_ts: float | None = None
+        selection_timestamps: list[float] = []
+        shortcut_latencies: list[float] = []
+        backspace_count = 0
+        delete_count = 0
+        selection_count = 0
+        selection_then_delete_count = 0
+        keydown_count = 0
+
+        for event in ordered_events:
+            event_type = event.get("type")
+            key = self._normalize_key(event.get("key"))
+            ts = float(event.get("timestamp", 0.0))
+
+            if event_type == "keydown":
+                keydown_count += 1
+                if key in {"control", "meta"}:
+                    control_active = True
+                    control_down_ts = ts
+                elif key == "shift":
+                    shift_active = True
+
+                if key == "v" and control_active and control_down_ts is not None:
+                    latency = ts - control_down_ts
+                    if 0.0 <= latency <= 1500.0:
+                        shortcut_latencies.append(float(latency))
+
+                selection_detected = ((key == "a" and control_active) or (key.startswith("arrow") and shift_active))
+                if selection_detected:
+                    selection_count += 1
+                    selection_timestamps.append(ts)
+
+                if key == "backspace":
+                    backspace_count += 1
+                    if selection_timestamps and (ts - selection_timestamps[-1]) <= 1600.0:
+                        selection_then_delete_count += 1
+                elif key == "delete":
+                    delete_count += 1
+                    if selection_timestamps and (ts - selection_timestamps[-1]) <= 1600.0:
+                        selection_then_delete_count += 1
+
+            elif event_type == "keyup":
+                if key in {"control", "meta"}:
+                    control_active = False
+                    control_down_ts = None
+                elif key == "shift":
+                    shift_active = False
+
+        features.update(self._safe_stats(shortcut_latencies, "shortcut_ctrl_v_latency"))
+        features["shortcut_ctrl_v_count"] = float(len(shortcut_latencies))
+
+        ratio_den = max(1, keydown_count)
+        deletion_total = backspace_count + delete_count + selection_count
+        deletion_den = max(1, deletion_total)
+        features["deletion_backspace_ratio"] = float(backspace_count / ratio_den)
+        features["deletion_delete_ratio"] = float(delete_count / ratio_den)
+        features["deletion_selection_ratio"] = float(selection_count / ratio_den)
+        features["selection_then_delete_ratio"] = float(selection_then_delete_count / max(1, backspace_count + delete_count))
+        features["backspace_delete_ratio"] = float(backspace_count / max(1, delete_count))
+        probs = np.array(
+            [
+                backspace_count / deletion_den,
+                delete_count / deletion_den,
+                selection_count / deletion_den,
+            ],
+            dtype=float,
+        )
+        probs = probs[probs > 0.0]
+        if probs.size:
+            features["deletion_strategy_entropy"] = float(-np.sum(probs * np.log2(probs)))
+        else:
+            features["deletion_strategy_entropy"] = 0.0
+        return features
+
     def extract_keystroke_features(self, keystroke_data):
         """Extract robust keystroke timing and typing-consistency features."""
         if not keystroke_data:
@@ -173,8 +301,10 @@ class BehavioralFeatureExtractor:
             dwell_arr = np.asarray(dwell_times, dtype=float)
             dwell_mean = float(np.mean(dwell_arr))
             features["dwell_cv"] = float((np.std(dwell_arr) / max(1e-6, dwell_mean)))
+            features["dwell_variance"] = float(np.var(dwell_arr))
         else:
             features["dwell_cv"] = 0.0
+            features["dwell_variance"] = 0.0
 
         if ikl_latencies:
             ikl_arr = np.asarray(ikl_latencies, dtype=float)
@@ -193,6 +323,7 @@ class BehavioralFeatureExtractor:
         else:
             features["dwell_outlier_rate"] = 0.0
 
+        features.update(self._extract_rhythm_buffer_features(ordered))
         return features
 
     def get_feature_vector(self, keystroke_data, mouse_data=None):
@@ -203,8 +334,18 @@ class BehavioralFeatureExtractor:
         vector = [combined[k] for k in keys]
         return np.array(vector, dtype=float), keys
 
+    def get_feature_vector_structure(self) -> dict[str, list[str]]:
+        """Expose grouped feature names used by the ML feature vector."""
+        keystroke_keys = sorted(self.get_default_keystroke_features().keys())
+        mouse_keys = sorted(self.get_default_mouse_features().keys())
+        return {
+            "keystroke": keystroke_keys,
+            "mouse": mouse_keys,
+            "combined_sorted": sorted(set(keystroke_keys + mouse_keys)),
+        }
+
     def extract_mouse_features(self, mouse_data):
-        """Extract movement smoothness, speed, acceleration and click dynamics."""
+        """Extract movement kinematics, smoothness, curvature and click dynamics."""
         if not mouse_data:
             return self.get_default_mouse_features()
 
@@ -219,16 +360,17 @@ class BehavioralFeatureExtractor:
         click_events = [e for e in ordered if e.get("type") in {"click", "mousedown"}]
 
         features = {}
-        velocities = []
-        accelerations = []
-        jerks = []
-        direction_angles = []
+        velocities: list[float] = []
+        accelerations: list[float] = []
+        tangential_accelerations: list[float] = []
+        curvatures: list[float] = []
+        jerks: list[float] = []
+        direction_angles: list[float] = []
         path_distance = 0.0
         pause_count = 0
 
         if len(move_events) > 1:
-            prev_v = None
-            prev_a = None
+            segments = []
             for i in range(1, len(move_events)):
                 prev = move_events[i - 1]
                 cur = move_events[i]
@@ -241,20 +383,52 @@ class BehavioralFeatureExtractor:
                 dy = float(cur["y"]) - float(prev["y"])
                 dist = np.hypot(dx, dy)
                 path_distance += dist
-                v = dist / dt
-                if np.isfinite(v):
-                    velocities.append(v)
+                vx = dx / dt
+                vy = dy / dt
+                speed = float(np.hypot(vx, vy))
+                if np.isfinite(speed):
+                    velocities.append(speed)
                     direction_angles.append(float(np.arctan2(dy, dx)))
-                if prev_v is not None:
-                    a = (v - prev_v) / dt
-                    if np.isfinite(a):
-                        accelerations.append(a)
-                        if prev_a is not None:
-                            jerk = (a - prev_a) / dt
-                            if np.isfinite(jerk):
-                                jerks.append(float(jerk))
-                        prev_a = a
-                prev_v = v
+                segments.append(
+                    {
+                        "dt": dt,
+                        "vx": vx,
+                        "vy": vy,
+                        "speed": speed,
+                    }
+                )
+
+            acceleration_vectors = []
+            for i in range(1, len(segments)):
+                prev = segments[i - 1]
+                cur = segments[i]
+                dt = max(float(cur["dt"]), 1e-6)
+                ax = (float(cur["vx"]) - float(prev["vx"])) / dt
+                ay = (float(cur["vy"]) - float(prev["vy"])) / dt
+                acceleration_magnitude = float(np.hypot(ax, ay))
+                if np.isfinite(acceleration_magnitude):
+                    accelerations.append(acceleration_magnitude)
+
+                speed = max(float(cur["speed"]), 1e-6)
+                tangential = float(((ax * float(cur["vx"])) + (ay * float(cur["vy"]))) / speed)
+                if np.isfinite(tangential):
+                    tangential_accelerations.append(float(np.clip(tangential, -5000.0, 5000.0)))
+
+                curvature = float(abs((float(cur["vx"]) * ay) - (float(cur["vy"]) * ax)) / max(speed**3, 1e-6))
+                if np.isfinite(curvature):
+                    curvatures.append(float(np.clip(curvature, 0.0, 5000.0)))
+
+                acceleration_vectors.append({"dt": dt, "ax": ax, "ay": ay})
+
+            for i in range(1, len(acceleration_vectors)):
+                prev = acceleration_vectors[i - 1]
+                cur = acceleration_vectors[i]
+                dt = max(float(cur["dt"]), 1e-6)
+                jx = (float(cur["ax"]) - float(prev["ax"])) / dt
+                jy = (float(cur["ay"]) - float(prev["ay"])) / dt
+                jerk_magnitude = float(np.hypot(jx, jy))
+                if np.isfinite(jerk_magnitude):
+                    jerks.append(float(np.clip(jerk_magnitude, 0.0, 5000.0)))
 
             start = move_events[0]
             end = move_events[-1]
@@ -262,6 +436,23 @@ class BehavioralFeatureExtractor:
             movement_eff = straight_distance / path_distance if path_distance > 0 else 1.0
             features["movement_efficiency"] = float(np.clip(movement_eff, 0.0, 1.0))
             features["path_length"] = float(path_distance)
+            features["path_directness_ratio"] = float(np.clip(path_distance / max(1e-6, straight_distance), 0.0, 50.0))
+
+            if straight_distance > 1e-6 and len(move_events) > 2:
+                x1 = float(start["x"])
+                y1 = float(start["y"])
+                x2 = float(end["x"])
+                y2 = float(end["y"])
+                deviations = []
+                for point in move_events[1:-1]:
+                    x0 = float(point["x"])
+                    y0 = float(point["y"])
+                    numerator = abs(((y2 - y1) * x0) - ((x2 - x1) * y0) + (x2 * y1) - (y2 * x1))
+                    deviations.append(float(numerator / straight_distance))
+                normalized_deviations = [value / max(1e-6, straight_distance) for value in deviations]
+                features.update(self._safe_stats(normalized_deviations, "path_curvature_deviation"))
+            else:
+                features.update(self._safe_stats([], "path_curvature_deviation"))
 
             direction_changes = 0
             turn_angles = []
@@ -284,12 +475,16 @@ class BehavioralFeatureExtractor:
             features["movement_efficiency"] = 0.0
             features["direction_changes"] = 0.0
             features["path_length"] = 0.0
+            features["path_directness_ratio"] = 0.0
             features["turn_angle_mean"] = 0.0
             features["turn_angle_std"] = 0.0
             features["move_pause_ratio"] = 0.0
+            features.update(self._safe_stats([], "path_curvature_deviation"))
 
         features.update(self._safe_stats(velocities, "velocity"))
         features.update(self._safe_stats(accelerations, "acceleration"))
+        features.update(self._safe_stats(tangential_accelerations, "tangential_acceleration"))
+        features.update(self._safe_stats(curvatures, "curvature"))
         features.update(self._safe_stats(jerks, "jerk"))
 
         if len(click_events) > 1:
@@ -341,7 +536,38 @@ class BehavioralFeatureExtractor:
             "repeat_key_ratio": 0.0,
             "modifier_key_ratio": 0.0,
             "dwell_cv": 0.0,
+            "dwell_variance": 0.0,
             "ikl_burstiness": 0.0,
+            "digraph_th_latency_mean": 0.0,
+            "digraph_th_latency_std": 0.0,
+            "digraph_th_latency_median": 0.0,
+            "digraph_th_latency_p95": 0.0,
+            "digraph_th_samples": 0.0,
+            "digraph_he_latency_mean": 0.0,
+            "digraph_he_latency_std": 0.0,
+            "digraph_he_latency_median": 0.0,
+            "digraph_he_latency_p95": 0.0,
+            "digraph_he_samples": 0.0,
+            "digraph_in_latency_mean": 0.0,
+            "digraph_in_latency_std": 0.0,
+            "digraph_in_latency_median": 0.0,
+            "digraph_in_latency_p95": 0.0,
+            "digraph_in_samples": 0.0,
+            "digraph_latency_mean": 0.0,
+            "digraph_latency_std": 0.0,
+            "digraph_latency_median": 0.0,
+            "digraph_latency_p95": 0.0,
+            "shortcut_ctrl_v_latency_mean": 0.0,
+            "shortcut_ctrl_v_latency_std": 0.0,
+            "shortcut_ctrl_v_latency_median": 0.0,
+            "shortcut_ctrl_v_latency_p95": 0.0,
+            "shortcut_ctrl_v_count": 0.0,
+            "deletion_backspace_ratio": 0.0,
+            "deletion_delete_ratio": 0.0,
+            "deletion_selection_ratio": 0.0,
+            "selection_then_delete_ratio": 0.0,
+            "backspace_delete_ratio": 0.0,
+            "deletion_strategy_entropy": 0.0,
         }
 
     def get_default_mouse_features(self):
@@ -354,12 +580,25 @@ class BehavioralFeatureExtractor:
             "acceleration_std": 0.0,
             "acceleration_median": 0.0,
             "acceleration_p95": 0.0,
+            "tangential_acceleration_mean": 0.0,
+            "tangential_acceleration_std": 0.0,
+            "tangential_acceleration_median": 0.0,
+            "tangential_acceleration_p95": 0.0,
+            "curvature_mean": 0.0,
+            "curvature_std": 0.0,
+            "curvature_median": 0.0,
+            "curvature_p95": 0.0,
             "jerk_mean": 0.0,
             "jerk_std": 0.0,
             "jerk_median": 0.0,
             "jerk_p95": 0.0,
             "movement_efficiency": 0.0,
             "path_length": 0.0,
+            "path_directness_ratio": 0.0,
+            "path_curvature_deviation_mean": 0.0,
+            "path_curvature_deviation_std": 0.0,
+            "path_curvature_deviation_median": 0.0,
+            "path_curvature_deviation_p95": 0.0,
             "direction_changes": 0.0,
             "turn_angle_mean": 0.0,
             "turn_angle_std": 0.0,
