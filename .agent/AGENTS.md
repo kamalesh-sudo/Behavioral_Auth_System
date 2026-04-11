@@ -3,15 +3,24 @@
 ## Project Overview
 FastAPI-based Python service with JWT auth, realtime behavioral anomaly detection over WebSocket, SQLite/PostgreSQL persistence, and a vanilla HTML/CSS/JS frontend.
 
-## Key Commands
-- Install dependencies: `python -m venv .venv && .venv/bin/pip install -r backend/requirements.txt`
-- Run dev server: `.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload`
-- Build/syntax gate: `.venv/bin/python -m py_compile app/main.py app/realtime.py app/database.py backend/ml/behavioral_analyzer.py backend/ml/feature_extractor.py`
-- Test (all core tests): `.venv/bin/python -m unittest -q tests/test_database.py tests/test_behavioral_ml.py`
-- Test single file: `.venv/bin/python -m unittest -q tests/test_behavioral_ml.py`
-- Test single case: `.venv/bin/python -m unittest -q tests.test_behavioral_ml.BehavioralMLTests.test_cross_user_impostor_can_reach_alert_threshold`
-- Lint: no dedicated linter is configured; use `py_compile` + unit tests as required quality gate.
-- Optional legacy websocket server: `.venv/bin/python backend/websocket_server.py`
+## Key Commands & Environment
+- **Environment**: `/home/kamal/py_venv/ai_agent/`
+- **Activate (Fish)**: `source /home/kamal/py_venv/ai_agent/bin/activate.fish`
+- **Python Path**: `/home/kamal/py_venv/ai_agent/bin/python`
+- **Uvicorn Path**: `/home/kamal/py_venv/ai_agent/bin/uvicorn`
+
+### Version Control Policy (Mandatory)
+- **Tracking**: Every successful logical change or bug fix must be committed.
+- **Workflow**:
+  1. Perform code change.
+  2. Run `py_compile` or `unittest` gate.
+  3. If passed: `git add <modified_files>`
+  4. `git commit -m "<type>(<scope>): <short_description>"`
+- **Commit Types**: `feat` (new feature), `fix` (bug fix), `refactor` (code cleanup), `test` (adding tests).
+
+### Advanced Command Execution
+- Run dev server: `/home/kamal/py_venv/ai_agent/bin/uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload`
+- Run Gate: `/home/kamal/py_venv/ai_agent/bin/python -m py_compile app/main.py`
 
 ## Project Structure
 - `app/`: FastAPI app, route handlers, auth, settings, DB access layer, realtime service.

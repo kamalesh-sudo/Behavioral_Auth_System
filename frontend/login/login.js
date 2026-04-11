@@ -12,6 +12,7 @@ class LoginBehavioralCollector {
         this.wsReconnectTimer = null;
         this.wsTokenInUse = null;
         this.lastKeyEventTimestamp = 0;
+        this.behaviorFlushIntervalMs = 500;
         this.collectionTimer = null;
         this.behaviorListenersEnabled = false;
         this.boundBehaviorHandlers = {
@@ -460,10 +461,10 @@ class LoginBehavioralCollector {
         this.isCollecting = true;
         this.updateStatus('Collecting behavioral data...', 'success');
 
-        // Send behavioral data every 1 second for faster demo feedback.
+        // Flush more frequently to reduce time-to-detection.
         this.collectionTimer = setInterval(() => {
             this.sendBehavioralData();
-        }, 1000);
+        }, this.behaviorFlushIntervalMs);
     }
 
     stopDataCollection() {

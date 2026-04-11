@@ -37,10 +37,10 @@ class BehavioralAnalyzer:
         self.user_feature_history = defaultdict(list)
         self.user_risk_ema = {}
         # Presentation-tuned defaults for quicker confidence buildup.
-        self.min_keystroke_events = 4
-        self.min_mouse_events = 4
-        self.min_total_events = 8
-        self.min_interaction_window_ms = 900
+        self.min_keystroke_events = 3
+        self.min_mouse_events = 3
+        self.min_total_events = 6
+        self.min_interaction_window_ms = 600
         self.profile_train_min_samples = 6
         self.profile_history_max = 80
         self.drift_window_size = 6
@@ -50,7 +50,7 @@ class BehavioralAnalyzer:
         self.last_explanations = {}
         self.last_debug_io = {}
         self.profile_update_risk_threshold = 0.45
-        self.critical_risk_passthrough = 0.6
+        self.critical_risk_passthrough = 0.55
         self.pending_behavior_windows = defaultdict(lambda: {"keystrokeData": [], "mouseData": []})
         self.pending_behavior_max_events = 240
         self.pending_behavior_window_ms = 5000
@@ -335,14 +335,14 @@ class BehavioralAnalyzer:
         separation_risk = self._identity_separation_risk(user_id, features, keys)
         # Emphasize identity mismatch while explicitly tracking user-specific >2σ spikes.
         combined = (
-            (0.20 * model_risk)
-            + (0.22 * distance_risk)
-            + (0.09 * drift_risk)
-            + (0.05 * global_risk)
-            + (0.04 * context_risk)
-            + (0.22 * impostor_risk)
-            + (0.08 * separation_risk)
-            + (0.10 * profile_z_spike_risk)
+            (0.16 * model_risk)
+            + (0.20 * distance_risk)
+            + (0.08 * drift_risk)
+            + (0.04 * global_risk)
+            + (0.03 * context_risk)
+            + (0.28 * impostor_risk)
+            + (0.07 * separation_risk)
+            + (0.14 * profile_z_spike_risk)
         )
         explanation = {
             "reason": "user_model",

@@ -19,6 +19,7 @@ class WorkspaceApp {
         this.wsReconnectTimer = null;
         this.wsManuallyClosed = false;
         this.behaviorCollectionEnabled = true;
+        this.behaviorFlushIntervalMs = 500;
         this.lastKeyEventTimestamp = 0;
         this.taskSearchQuery = "";
         this.taskPriorityFilter = "all";
@@ -764,7 +765,7 @@ class WorkspaceApp {
         };
 
         if (!this.flushTimer) {
-            this.flushTimer = setInterval(() => this.flushBehaviorData(), 1000);
+            this.flushTimer = setInterval(() => this.flushBehaviorData(), this.behaviorFlushIntervalMs);
         }
     }
 
