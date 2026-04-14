@@ -333,16 +333,15 @@ class BehavioralAnalyzer:
         global_risk = self.analyze_with_global_model(features)
         impostor_risk, impostor_hint = self._cross_user_impostor_risk(user_id, features, keys)
         separation_risk = self._identity_separation_risk(user_id, features, keys)
-        # Emphasize identity mismatch while explicitly tracking user-specific >2σ spikes.
         combined = (
-            (0.16 * model_risk)
-            + (0.20 * distance_risk)
+            (0.35 * model_risk)
+            + (0.35 * distance_risk)
             + (0.08 * drift_risk)
             + (0.04 * global_risk)
             + (0.03 * context_risk)
-            + (0.28 * impostor_risk)
-            + (0.07 * separation_risk)
-            + (0.14 * profile_z_spike_risk)
+            + (0.05 * impostor_risk)
+            + (0.03 * separation_risk)
+            + (0.07 * profile_z_spike_risk)
         )
         explanation = {
             "reason": "user_model",

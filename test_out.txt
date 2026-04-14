@@ -1,0 +1,28 @@
+Feeding user1 data to train profile
+user1 train 0 risk: 0.25
+user1 train 1 risk: 0.23145
+user1 train 2 risk: 0.19489250000000607
+user1 train 3 risk: 0.17113012500000394
+user1 train 4 risk: 0.15568458125039114
+user1 train 5 risk: 0.13975331114609363
+user1 train 6 risk: 0.12939798557830026
+user1 train 7 risk: 0.12266702395923457
+user1 train 8 risk: 0.11829189890703616
+user1 train 9 risk: 0.11544806762330148
+\Feeding user2 data to train profile
+user2 train 0 risk: 0.25
+user2 train 1 risk: 0.23145
+user2 train 2 risk: 0.1948925
+user2 train 3 risk: 0.171130125
+user2 train 4 risk: 0.15568458125009715
+user2 train 5 risk: 0.13362831114589646
+user2 train 6 risk: 0.11929173557816602
+user2 train 7 risk: 0.10997296145914125
+user2 train 8 risk: 0.10391575828177514
+user2 train 9 risk: 0.09997857621658432
+
+Cross testing
+User1 hit with User2 data risk: 0.6426666666666667
+Explanation: {'reason': 'user_model', 'components': {'model': 0.4166666666666667, 'distance': 1.0, 'drift': 0.2, 'global': 0.25, 'context': 0.0, 'impostor': 1.0, 'separation': 1.0, 'profile_z_spike': 0.0}, 'top_deviations': [{'feature': 'active_duration_ms', 'z_score': 2190000000.0, 'value': 4950.0, 'baseline': 2760.0}, {'feature': 'flight_mean', 'z_score': 690000000.0, 'value': 900.0, 'baseline': 210.0}, {'feature': 'rhythm_profile_flight_median', 'z_score': 690000000.0, 'value': 900.0, 'baseline': 210.0}, {'feature': 'flight_p95', 'z_score': 690000000.0, 'value': 900.0, 'baseline': 210.0}, {'feature': 'flight_median', 'z_score': 690000000.0, 'value': 900.0, 'baseline': 210.0}], 'impostor_hint': {'closest_other_user': 'user2', 'claimed_user_distance': 4.901010101010101, 'closest_other_distance': 5.551115121893188e-12, 'distance_gap': 4.90101010100455, 'distance_ratio': 4901010.101010101}, 'profile_updated': False}
+User2 hit with User1 data risk: 0.6426666666666667
+Explanation: {'reason': 'user_model', 'components': {'model': 0.4166666666666667, 'distance': 1.0, 'drift': 0.2, 'global': 0.25, 'context': 0.0, 'impostor': 1.0, 'separation': 1.0, 'profile_z_spike': 0.0}, 'top_deviations': [{'feature': 'active_duration_ms', 'z_score': 2190000000.0, 'value': 2760.0, 'baseline': 4950.0}, {'feature': 'flight_mean', 'z_score': 690000000.0, 'value': 210.0, 'baseline': 900.0}, {'feature': 'rhythm_profile_flight_median', 'z_score': 690000000.0, 'value': 210.0, 'baseline': 900.0}, {'feature': 'flight_p95', 'z_score': 690000000.0, 'value': 210.0, 'baseline': 900.0}, {'feature': 'flight_median', 'z_score': 690000000.0, 'value': 210.0, 'baseline': 900.0}], 'impostor_hint': {'closest_other_user': 'user1', 'claimed_user_distance': 4.901010101010101, 'closest_other_distance': 3.469446951905466e-13, 'distance_gap': 4.901010101009754, 'distance_ratio': 4901010.101010101}, 'profile_updated': False}
