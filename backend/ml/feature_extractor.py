@@ -326,10 +326,11 @@ class BehavioralFeatureExtractor:
         features.update(self._extract_rhythm_buffer_features(ordered))
         return features
 
-    def get_feature_vector(self, keystroke_data, mouse_data=None):
+    def get_feature_vector(self, keystroke_data, mouse_data=None, eye_data=None):
         k_features = self.extract_keystroke_features(keystroke_data)
         m_features = self.extract_mouse_features(mouse_data or [])
-        combined = {**k_features, **m_features}
+        e_features = self.extract_eye_features(eye_data or [])
+        combined = {**k_features, **m_features, **e_features}
         keys = sorted(combined.keys())
         vector = [combined[k] for k in keys]
         return np.array(vector, dtype=float), keys
@@ -338,10 +339,12 @@ class BehavioralFeatureExtractor:
         """Expose grouped feature names used by the ML feature vector."""
         keystroke_keys = sorted(self.get_default_keystroke_features().keys())
         mouse_keys = sorted(self.get_default_mouse_features().keys())
+        eye_keys = sorted(self.get_default_eye_features().keys())
         return {
             "keystroke": keystroke_keys,
             "mouse": mouse_keys,
-            "combined_sorted": sorted(set(keystroke_keys + mouse_keys)),
+            "eye": eye_keys,
+            "combined_sorted": sorted(set(keystroke_keys + mouse_keys + eye_keys)),
         }
 
     def extract_mouse_features(self, mouse_data):
@@ -570,6 +573,97 @@ class BehavioralFeatureExtractor:
             "deletion_strategy_entropy": 0.0,
         }
 
+    def extract_eye_features(self, eye_data):
+        """Extract gaze kinematics, saccade dynamics, and blinking patterns."""
+        if not eye_data:
+            return self.get_default_eye_features()
+
+        ordered = sorted(
+            [e for e in eye_data if "timestamp" in e],
+            key=lambda e: e.get("timestamp", 0),
+        )
+        if len(ordered) < 5:
+            return self.get_default_eye_features()
+
+        features = {}
+        
+        # Movement Kinematics (similar to mouse but specific to gaze)
+        gaze_events = [e for e in ordered if "x" in e and "y" in e and not e.get("isBlink")]
+        blink_events = [e for e in ordered if e.get("isBlink")]
+
+        velocities = []
+        accelerations = []
+        jerks = []
+        path_distance = 0.0
+
+        if len(gaze_events) > 1:
+            segments = []
+            for i in range(1, len(gaze_events)):
+                prev = gaze_events[i-1]
+                cur = gaze_events[i]
+                dt = float(cur["timestamp"]) - float(prev["timestamp"])
+                if dt <= 0: continue
+                
+                dx = float(cur["x"]) - float(prev["x"])
+                dy = float(cur["y"]) - float(prev["y"])
+                dist = np.hypot(dx, dy)
+                path_distance += dist
+                
+                speed = dist / dt
+                if np.isfinite(speed):
+                    velocities.append(float(speed))
+                    segments.append({"dt": dt, "speed": speed, "vx": dx/dt, "vy": dy/dt})
+
+            acceleration_vectors = []
+            for i in range(1, len(segments)):
+                prev = segments[i-1]
+                cur = segments[i]
+                dt = max(float(cur["dt"]), 1e-6)
+                ax = (cur["vx"] - prev["vx"]) / dt
+                ay = (cur["vy"] - prev["vy"]) / dt
+                accel = np.hypot(ax, ay)
+                if np.isfinite(accel):
+                    accelerations.append(float(accel))
+                    acceleration_vectors.append({"dt": dt, "ax": ax, "ay": ay})
+
+            for i in range(1, len(acceleration_vectors)):
+                prev = acceleration_vectors[i-1]
+                cur = acceleration_vectors[i]
+                dt = max(float(cur["dt"]), 1e-6)
+                jx = (cur["ax"] - prev["ax"]) / dt
+                jy = (cur["ay"] - prev["ay"]) / dt
+                jerk = np.hypot(jx, jy)
+                if np.isfinite(jerk):
+                    jerks.append(float(jerk))
+
+        features.update(self._safe_stats(velocities, "gaze_velocity"))
+        features.update(self._safe_stats(accelerations, "gaze_acceleration"))
+        features.update(self._safe_stats(jerks, "gaze_jerk"))
+        
+        # Blink Dynamics
+        duration_ms = max(1.0, float(ordered[-1]["timestamp"]) - float(ordered[0]["timestamp"]))
+        features["blink_rate"] = float(len(blink_events) * 60000.0 / duration_ms) # blinks per minute
+        
+        blink_durations = [float(e.get("blinkDuration", 0)) for e in blink_events if e.get("blinkDuration") is not None]
+        features.update(self._safe_stats(blink_durations, "blink_duration"))
+        
+        # Gaze Stability (Fixation)
+        if gaze_events:
+            x_coords = [float(e["x"]) for e in gaze_events]
+            y_coords = [float(e["y"]) for e in gaze_events]
+            features["gaze_stability_x"] = float(np.std(x_coords))
+            features["gaze_stability_y"] = float(np.std(y_coords))
+            features["gaze_dispersion"] = float(np.sqrt(np.var(x_coords) + np.var(y_coords)))
+        else:
+            features["gaze_stability_x"] = 0.0
+            features["gaze_stability_y"] = 0.0
+            features["gaze_dispersion"] = 0.0
+
+        features["eye_events_count"] = float(len(ordered))
+        features["gaze_path_length"] = float(path_distance)
+        
+        return features
+
     def get_default_mouse_features(self):
         return {
             "velocity_mean": 0.0,
@@ -610,4 +704,30 @@ class BehavioralFeatureExtractor:
             "click_rate": 0.0,
             "click_to_move_ratio": 0.0,
             "mouse_events_count": 0.0,
+        }
+
+    def get_default_eye_features(self):
+        return {
+            "gaze_velocity_mean": 0.0,
+            "gaze_velocity_std": 0.0,
+            "gaze_velocity_median": 0.0,
+            "gaze_velocity_p95": 0.0,
+            "gaze_acceleration_mean": 0.0,
+            "gaze_acceleration_std": 0.0,
+            "gaze_acceleration_median": 0.0,
+            "gaze_acceleration_p95": 0.0,
+            "gaze_jerk_mean": 0.0,
+            "gaze_jerk_std": 0.0,
+            "gaze_jerk_median": 0.0,
+            "gaze_jerk_p95": 0.0,
+            "blink_rate": 0.0,
+            "blink_duration_mean": 0.0,
+            "blink_duration_std": 0.0,
+            "blink_duration_median": 0.0,
+            "blink_duration_p95": 0.0,
+            "gaze_stability_x": 0.0,
+            "gaze_stability_y": 0.0,
+            "gaze_dispersion": 0.0,
+            "eye_events_count": 0.0,
+            "gaze_path_length": 0.0,
         }

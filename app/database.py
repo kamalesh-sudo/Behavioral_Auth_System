@@ -86,6 +86,7 @@ class AuthDatabase:
                     session_id TEXT UNIQUE NOT NULL,
                     keystroke_data TEXT,
                     mouse_data TEXT,
+                    eye_data TEXT,
                     risk_score DOUBLE PRECISION,
                     timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
                 )
@@ -206,6 +207,7 @@ class AuthDatabase:
                     session_id TEXT UNIQUE NOT NULL,
                     keystroke_data TEXT,
                     mouse_data TEXT,
+                    eye_data TEXT,
                     risk_score REAL,
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users (id)
@@ -369,6 +371,27 @@ class AuthDatabase:
             WHERE status NOT IN ('todo', 'in_progress', 'review', 'done')
             """
         )
+        conn.commit()
+
+        # Migrate behavioral_profiles for eye_data
+        if self.is_postgres:
+            cursor.execute(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'behavioral_profiles'
+                """
+            )
+            bp_columns = {row[0] for row in cursor.fetchall()}
+            if "eye_data" not in bp_columns:
+                cursor.execute("ALTER TABLE behavioral_profiles ADD COLUMN eye_data TEXT")
+                conn.commit()
+        else:
+            cursor.execute("PRAGMA table_info(behavioral_profiles)")
+            bp_columns = {row[1] for row in cursor.fetchall()}
+            if "eye_data" not in bp_columns:
+                cursor.execute("ALTER TABLE behavioral_profiles ADD COLUMN eye_data TEXT")
+                conn.commit()
         conn.commit()
 
     @staticmethod
@@ -1260,36 +1283,52 @@ class AuthDatabase:
         session_id: str,
         keystroke_data: list[dict],
         mouse_data: list[dict],
+        eye_data: list[dict],
         risk_score: float,
     ) -> dict:
         try:
             conn = self._connect()
             cursor = conn.cursor()
             cursor.execute(
-                "SELECT keystroke_data, mouse_data FROM behavioral_profiles WHERE session_id = ?",
+                "SELECT keystroke_data, mouse_data, eye_data FROM behavioral_profiles WHERE session_id = ?",
                 (session_id,),
             )
             existing = cursor.fetchone()
             if existing:
                 existing_keystrokes = json.loads(existing[0] or "[]")
                 existing_mouse = json.loads(existing[1] or "[]")
+                existing_eye = json.loads(existing[2] or "[]")
                 existing_keystrokes.extend(keystroke_data or [])
                 existing_mouse.extend(mouse_data or [])
+                existing_eye.extend(eye_data or [])
                 cursor.execute(
                     """
                     UPDATE behavioral_profiles
-                    SET keystroke_data = ?, mouse_data = ?, risk_score = ?, timestamp = CURRENT_TIMESTAMP
+                    SET keystroke_data = ?, mouse_data = ?, eye_data = ?, risk_score = ?, timestamp = CURRENT_TIMESTAMP
                     WHERE session_id = ?
                     """,
-                    (json.dumps(existing_keystrokes), json.dumps(existing_mouse), risk_score, session_id),
+                    (
+                        json.dumps(existing_keystrokes),
+                        json.dumps(existing_mouse),
+                        json.dumps(existing_eye),
+                        risk_score,
+                        session_id,
+                    ),
                 )
             else:
                 cursor.execute(
                     """
-                    INSERT INTO behavioral_profiles (user_id, session_id, keystroke_data, mouse_data, risk_score)
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO behavioral_profiles (user_id, session_id, keystroke_data, mouse_data, eye_data, risk_score)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    (user_id, session_id, json.dumps(keystroke_data or []), json.dumps(mouse_data or []), risk_score),
+                    (
+                        user_id,
+                        session_id,
+                        json.dumps(keystroke_data or []),
+                        json.dumps(mouse_data or []),
+                        json.dumps(eye_data or []),
+                        risk_score,
+                    ),
                 )
             conn.commit()
             conn.close()
@@ -1330,7 +1369,7 @@ class AuthDatabase:
             active_filter = "TRUE" if self.is_postgres else "1"
             cursor.execute(
                 f"""
-                SELECT u.username, b.keystroke_data, b.mouse_data
+                SELECT u.username, b.keystroke_data, b.mouse_data, b.eye_data
                 FROM behavioral_profiles b
                 JOIN users u ON u.id = b.user_id
                 WHERE u.is_active = {active_filter}
@@ -1349,6 +1388,7 @@ class AuthDatabase:
                         "behavioral_data": {
                             "keystrokeData": json.loads(row[1] or "[]"),
                             "mouseData": json.loads(row[2] or "[]"),
+                            "eyeData": json.loads(row[3] or "[]"),
                         },
                     }
                 )

@@ -160,6 +160,7 @@ class RealtimeBehaviorService:
         session_id = data.get("sessionId")
         keystroke_data = data.get("keystrokeData", [])
         mouse_data = data.get("mouseData", [])
+        eye_data = data.get("eyeData", [])
         context = data.get("context") if isinstance(data.get("context"), dict) else None
         client_ip = self._extract_ws_ip(websocket)
         device_fingerprint = self._extract_device_fingerprint(data)
@@ -203,6 +204,7 @@ class RealtimeBehaviorService:
             ip_address=client_ip,
             keystrokes=len(keystroke_data),
             mouse=len(mouse_data),
+            eye=len(eye_data),
         )
 
         if self.db.is_user_blocked(username):
@@ -230,6 +232,7 @@ class RealtimeBehaviorService:
                 self._analyze_behavior_window_sync,
                 keystroke_data,
                 mouse_data,
+                eye_data,
                 username,
                 context,
                 debug_requested,
@@ -251,7 +254,7 @@ class RealtimeBehaviorService:
         user_info = self.db.get_user(username)
         if user_info.get("success"):
             self.db.save_behavioral_profile(
-                user_info["user"]["id"], session_id, keystroke_data, mouse_data, risk_score
+                user_info["user"]["id"], session_id, keystroke_data, mouse_data, eye_data, risk_score
             )
 
         if risk_score >= self.settings.anomaly_block_threshold:
@@ -378,7 +381,7 @@ class RealtimeBehaviorService:
         profile_created = False
         async with self._analyzer_lock:
             if username not in self.analyzer.user_profiles:
-                self.analyzer.create_user_profile(username, {"keystrokeData": [], "mouseData": []})
+                self.analyzer.create_user_profile(username, {"keystrokeData": [], "mouseData": [], "eyeData": []})
                 profile_created = True
             profile = self.analyzer.user_profiles.get(username, {})
             profile_model_trained = bool(profile.get("is_model_trained"))
@@ -463,11 +466,12 @@ class RealtimeBehaviorService:
         self,
         keystroke_data: list[dict],
         mouse_data: list[dict],
+        eye_data: list[dict],
         username: str,
         context: dict | None,
         debug_requested: bool,
     ) -> tuple[float, dict, dict]:
-        risk_score = self.analyzer.analyze_real_time(keystroke_data, mouse_data, username, context=context)
+        risk_score = self.analyzer.analyze_real_time(keystroke_data, mouse_data, eye_data, username, context=context)
         risk_explanation = self.analyzer.get_last_explanation(username)
         model_io = self.analyzer.get_last_debug_io(username) if debug_requested else {}
         return risk_score, risk_explanation, model_io

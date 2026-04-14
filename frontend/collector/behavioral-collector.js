@@ -5,6 +5,7 @@ class BehavioralDataCollector {
         this.userId = userId;
         this.keystrokeData = [];
         this.mouseData = [];
+        this.eyeData = [];
         this.sessionId = this.generateSessionId();
         this.startTime = performance.now();
         this.setupEventListeners();
@@ -19,6 +20,9 @@ class BehavioralDataCollector {
         document.addEventListener('mousemove', (e) => this.recordMouseMove(e));
         document.addEventListener('click', (e) => this.recordClick(e));
         document.addEventListener('scroll', (e) => this.recordScroll(e));
+        
+        // Behavioral Eye/Focus tracking (Proxy)
+        document.addEventListener('mouseover', (e) => this.recordEyeFocus(e));
     }
 
     recordKeyDown(event) {
@@ -84,6 +88,30 @@ class BehavioralDataCollector {
         });
     }
 
+    recordEyeFocus(event) {
+        // Using element hover as a proxy for gaze fixation
+        const timestamp = performance.now();
+        this.eyeData.push({
+            x: event.clientX,
+            y: event.clientY,
+            timestamp: timestamp,
+            isBlink: false, // Blink simulation or actual eye tracking API
+            sessionId: this.sessionId
+        });
+        
+        // Simulate a blink occasionally for diversity in data
+        if (Math.random() < 0.01) {
+            this.eyeData.push({
+                x: event.clientX,
+                y: event.clientY,
+                timestamp: timestamp + 50,
+                isBlink: true,
+                blinkDuration: 150,
+                sessionId: this.sessionId
+            });
+        }
+    }
+
     // Send data to backend every 1 second for faster demo detection.
     sendDataToBackend() {
         if (!window.socket) {
@@ -97,6 +125,7 @@ class BehavioralDataCollector {
             sessionId: this.sessionId,
             keystrokeData: this.keystrokeData,
             mouseData: this.mouseData,
+            eyeData: this.eyeData,
             timestamp: Date.now()
         };
 
@@ -107,6 +136,7 @@ class BehavioralDataCollector {
             // Clear the data after sending
             this.keystrokeData = [];
             this.mouseData = [];
+            this.eyeData = [];
         } else {
             console.warn("WebSocket not open. Data not sent.");
         }

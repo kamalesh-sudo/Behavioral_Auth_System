@@ -39,6 +39,7 @@ class BehavioralAnalyzer:
         # Presentation-tuned defaults for quicker confidence buildup.
         self.min_keystroke_events = 3
         self.min_mouse_events = 3
+        self.min_eye_events = 3
         self.min_total_events = 6
         self.min_interaction_window_ms = 600
         self.profile_train_min_samples = 6
@@ -51,7 +52,7 @@ class BehavioralAnalyzer:
         self.last_debug_io = {}
         self.profile_update_risk_threshold = 0.45
         self.critical_risk_passthrough = 0.55
-        self.pending_behavior_windows = defaultdict(lambda: {"keystrokeData": [], "mouseData": []})
+        self.pending_behavior_windows = defaultdict(lambda: {"keystrokeData": [], "mouseData": [], "eyeData": []})
         self.pending_behavior_max_events = 240
         self.pending_behavior_window_ms = 5000
     
@@ -78,12 +79,14 @@ class BehavioralAnalyzer:
         """Extract features from behavioral data"""
         keystroke_data = behavioral_data.get('keystrokeData', [])
         mouse_data = behavioral_data.get('mouseData', [])
+        eye_data = behavioral_data.get('eyeData', [])
         
         keystroke_features = self.feature_extractor.extract_keystroke_features(keystroke_data)
         mouse_features = self.feature_extractor.extract_mouse_features(mouse_data)
+        eye_features = self.feature_extractor.extract_eye_features(eye_data)
         
         # Combine features
-        combined_features = {**keystroke_features, **mouse_features}
+        combined_features = {**keystroke_features, **mouse_features, **eye_features}
         
         return combined_features
     
@@ -190,6 +193,7 @@ class BehavioralAnalyzer:
         """Create time windows from behavioral data"""
         keystroke_data = behavioral_data.get('keystrokeData', [])
         mouse_data = behavioral_data.get('mouseData', [])
+        eye_data = behavioral_data.get('eyeData', [])
         
         # Combine and sort by timestamp
         all_events = []
@@ -197,36 +201,41 @@ class BehavioralAnalyzer:
             all_events.append(('keystroke', event))
         for event in mouse_data:
             all_events.append(('mouse', event))
+        for event in eye_data:
+            all_events.append(('eye', event))
         
         all_events.sort(key=lambda x: x[1].get('timestamp', 0))
         
         # Create windows
         windows = []
-        current_window = {'keystrokeData': [], 'mouseData': []}
+        current_window = {'keystrokeData': [], 'mouseData': [], 'eyeData': []}
         
         for event_type, event in all_events:
             if event_type == 'keystroke':
                 current_window['keystrokeData'].append(event)
-            else:
+            elif event_type == 'mouse':
                 current_window['mouseData'].append(event)
+            else:
+                current_window['eyeData'].append(event)
             
             # Check if window is full
-            total_events = len(current_window['keystrokeData']) + len(current_window['mouseData'])
+            total_events = len(current_window['keystrokeData']) + len(current_window['mouseData']) + len(current_window['eyeData'])
             if total_events >= window_size:
                 windows.append(current_window)
-                current_window = {'keystrokeData': [], 'mouseData': []}
+                current_window = {'keystrokeData': [], 'mouseData': [], 'eyeData': []}
         
         # Add final window if not empty
-        if current_window['keystrokeData'] or current_window['mouseData']:
+        if current_window['keystrokeData'] or current_window['mouseData'] or current_window['eyeData']:
             windows.append(current_window)
         
         return windows
     
-    def analyze_real_time(self, keystroke_data, mouse_data, user_id=None, context=None):
+    def analyze_real_time(self, keystroke_data, mouse_data, eye_data=None, user_id=None, context=None):
         """Analyze behavioral data in real-time"""
         incoming_behavioral_data = {
             'keystrokeData': keystroke_data,
-            'mouseData': mouse_data
+            'mouseData': mouse_data,
+            'eyeData': eye_data or []
         }
         behavioral_data = incoming_behavioral_data
         if user_id:
@@ -429,23 +438,29 @@ class BehavioralAnalyzer:
     def _has_signal(self, behavioral_data: dict) -> bool:
         keystrokes = behavioral_data.get("keystrokeData", []) or []
         mouse = behavioral_data.get("mouseData", []) or []
+        eye = behavioral_data.get("eyeData", []) or []
         enough_events = (
             len(keystrokes) >= self.min_keystroke_events
             or len(mouse) >= self.min_mouse_events
-            or (len(keystrokes) + len(mouse)) >= self.min_total_events
+            or len(eye) >= self.min_eye_events
+            or (len(keystrokes) + len(mouse) + len(eye)) >= self.min_total_events
         )
         if not enough_events:
             return False
-        return self._interaction_window_ms(keystrokes, mouse) >= self.min_interaction_window_ms
+        return self._interaction_window_ms(keystrokes, mouse, eye) >= self.min_interaction_window_ms
 
     @staticmethod
-    def _interaction_window_ms(keystrokes: list[dict], mouse: list[dict]) -> float:
+    def _interaction_window_ms(keystrokes: list[dict], mouse: list[dict], eye: list[dict] = None) -> float:
         timestamps = []
         for event in keystrokes:
             ts = event.get("timestamp")
             if ts is not None:
                 timestamps.append(float(ts))
         for event in mouse:
+            ts = event.get("timestamp")
+            if ts is not None:
+                timestamps.append(float(ts))
+        for event in (eye or []):
             ts = event.get("timestamp")
             if ts is not None:
                 timestamps.append(float(ts))
@@ -478,11 +493,13 @@ class BehavioralAnalyzer:
         pending = self.pending_behavior_windows[user_id]
         pending_keystrokes = pending.get("keystrokeData", []) or []
         pending_mouse = pending.get("mouseData", []) or []
+        pending_eye = pending.get("eyeData", []) or []
         incoming_keystrokes = behavioral_data.get("keystrokeData", []) or []
         incoming_mouse = behavioral_data.get("mouseData", []) or []
+        incoming_eye = behavioral_data.get("eyeData", []) or []
 
-        pending_latest = self._max_timestamp(pending_keystrokes + pending_mouse)
-        incoming_latest = self._max_timestamp(incoming_keystrokes + incoming_mouse)
+        pending_latest = self._max_timestamp(pending_keystrokes + pending_mouse + pending_eye)
+        incoming_latest = self._max_timestamp(incoming_keystrokes + incoming_mouse + incoming_eye)
         if (
             pending_latest is not None
             and incoming_latest is not None
@@ -491,15 +508,17 @@ class BehavioralAnalyzer:
             # Frontend timestamp counters can restart on a new page/session.
             pending_keystrokes = []
             pending_mouse = []
+            pending_eye = []
 
         merged_keystrokes = self._trim_behavior_events(pending_keystrokes + incoming_keystrokes)
         merged_mouse = self._trim_behavior_events(pending_mouse + incoming_mouse)
-        merged = {"keystrokeData": merged_keystrokes, "mouseData": merged_mouse}
+        merged_eye = self._trim_behavior_events(pending_eye + incoming_eye)
+        merged = {"keystrokeData": merged_keystrokes, "mouseData": merged_mouse, "eyeData": merged_eye}
         self.pending_behavior_windows[user_id] = merged
         return merged
 
     def _clear_pending_behavior(self, user_id: str) -> None:
-        self.pending_behavior_windows[user_id] = {"keystrokeData": [], "mouseData": []}
+        self.pending_behavior_windows[user_id] = {"keystrokeData": [], "mouseData": [], "eyeData": []}
 
     def _append_user_history(self, user_id: str, features: dict) -> None:
         history = self.user_feature_history[user_id]
@@ -769,8 +788,10 @@ class BehavioralAnalyzer:
     ) -> None:
         incoming_keystrokes = incoming_behavioral_data.get("keystrokeData", []) or []
         incoming_mouse = incoming_behavioral_data.get("mouseData", []) or []
+        incoming_eye = incoming_behavioral_data.get("eyeData", []) or []
         analyzed_keystrokes = analyzed_behavioral_data.get("keystrokeData", []) or []
         analyzed_mouse = analyzed_behavioral_data.get("mouseData", []) or []
+        analyzed_eye = analyzed_behavioral_data.get("eyeData", []) or []
         feature_map = features or {}
         feature_keys = sorted(feature_map.keys())
         self.last_debug_io[user_id] = {
@@ -780,15 +801,17 @@ class BehavioralAnalyzer:
                 "incoming_event_counts": {
                     "keystrokes": int(len(incoming_keystrokes)),
                     "mouse": int(len(incoming_mouse)),
-                    "total": int(len(incoming_keystrokes) + len(incoming_mouse)),
+                    "eye": int(len(incoming_eye)),
+                    "total": int(len(incoming_keystrokes) + len(incoming_mouse) + len(incoming_eye)),
                 },
                 "analyzed_event_counts": {
                     "keystrokes": int(len(analyzed_keystrokes)),
                     "mouse": int(len(analyzed_mouse)),
-                    "total": int(len(analyzed_keystrokes) + len(analyzed_mouse)),
+                    "eye": int(len(analyzed_eye)),
+                    "total": int(len(analyzed_keystrokes) + len(analyzed_mouse) + len(analyzed_eye)),
                 },
-                "incoming_interaction_window_ms": float(self._interaction_window_ms(incoming_keystrokes, incoming_mouse)),
-                "analyzed_interaction_window_ms": float(self._interaction_window_ms(analyzed_keystrokes, analyzed_mouse)),
+                "incoming_interaction_window_ms": float(self._interaction_window_ms(incoming_keystrokes, incoming_mouse, incoming_eye)),
+                "analyzed_interaction_window_ms": float(self._interaction_window_ms(analyzed_keystrokes, analyzed_mouse, analyzed_eye)),
             },
             "model_input": {
                 "feature_keys": feature_keys,

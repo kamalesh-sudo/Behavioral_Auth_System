@@ -154,6 +154,7 @@ class BehavioralWebSocketServer:
         session_id = data.get('sessionId')
         keystroke_data = data.get('keystrokeData', [])
         mouse_data = data.get('mouseData', [])
+        eye_data = data.get('eyeData', [])
 
         if not user_id or not session_id:
             await websocket.send(json.dumps({
@@ -180,7 +181,7 @@ class BehavioralWebSocketServer:
         
         # Analyze behavioral data
         risk_score = self.analyzer.analyze_real_time(
-            keystroke_data, mouse_data, user_id
+            keystroke_data, mouse_data, eye_data, user_id
         )
         
         # Store session information
@@ -199,7 +200,8 @@ class BehavioralWebSocketServer:
                 session_id,
                 keystroke_data,
                 mouse_data,
-                risk_score
+                risk_score,
+                eye_data=eye_data
             )
 
         if risk_score >= self.settings.anomaly_block_threshold:
@@ -281,7 +283,8 @@ class BehavioralWebSocketServer:
         if user_id not in self.analyzer.user_profiles:
             self.analyzer.create_user_profile(user_id, {
                 'keystrokeData': [],
-                'mouseData': []
+                'mouseData': [],
+                'eyeData': []
             })
             
         await websocket.send(json.dumps({

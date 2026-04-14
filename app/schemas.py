@@ -40,6 +40,7 @@ class BehavioralProfilePayload(BaseModel):
     session_id: str = Field(min_length=1, max_length=256)
     keystroke_data: list[dict] = Field(default_factory=list)
     mouse_data: list[dict] = Field(default_factory=list)
+    eye_data: list[dict] = Field(default_factory=list)
     risk_score: float = Field(default=0.0, ge=0.0, le=1.0)
 
 

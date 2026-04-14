@@ -369,6 +369,7 @@ async def save_behavioral_profile(payload: BehavioralProfilePayload, principal: 
         payload.session_id,
         payload.keystroke_data,
         payload.mouse_data,
+        payload.eye_data,
         payload.risk_score,
     )
     if not result.get("success"):
