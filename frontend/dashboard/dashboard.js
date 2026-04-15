@@ -777,11 +777,10 @@ class WorkspaceApp {
                     return;
                 }
                 this.riskScore = data.riskScore;
-                console.log("[Risk Score]", Number(this.riskScore).toFixed(2));
                 document.getElementById("riskScore").textContent = Number(this.riskScore).toFixed(2);
                 this.updateRiskCoverage(data.riskExplanation || {});
                 
-                // Update Status Card based on risk
+                // Keep the integrated status card pulsing logic
                 if (data.alert || Number(this.riskScore) > 0.45) {
                     this.updateStatusUI(true, { reason: data.alert ? data.alert.message : "High behavioral risk" });
                 } else if (Number(this.riskScore) < 0.25) {
@@ -789,14 +788,16 @@ class WorkspaceApp {
                 }
 
                 if (data.alert) {
+                    // ✅ Use custom overlay instead of native alert()
+                    this.displayAnomalyAlert(data.alert, data.riskScore);
                     this.setStatus(`Risk alert: ${data.alert.message}`);
                 }
             } else if (data.type === "error") {
                 this.setStatus(data.message || "Realtime error");
                 this.setRiskCoverageText("Signal: realtime error");
             } else if (data.type === "session_terminated") {
-                alert(data.reason || "Session terminated by security policy.");
-                this.logout();
+                // ✅ Use custom overlay instead of native alert()
+                this.displaySessionTerminatedAlert(data.reason);
             }
         };
         socket.onerror = () => {
@@ -930,6 +931,98 @@ class WorkspaceApp {
         );
         this.keystrokeData = [];
         this.mouseData = [];
+    }
+
+    // ✅ NEW METHOD: Display custom anomaly alert overlay
+    displayAnomalyAlert(alert, riskScore) {
+        const overlay = document.getElementById("anomalyAlertOverlay");
+        const message = document.getElementById("anomalyMessage");
+        const riskLevel = document.getElementById("riskLevel");
+        const scoreElement = document.getElementById("anomalyRiskScore");
+        const timestamp = document.getElementById("anomalyTimestamp");
+        const reason = document.getElementById("anomalyReason");
+        
+        // Set message
+        message.textContent = alert.message || "Unusual behavioral patterns detected";
+        
+        // Set risk level based on score
+        if (riskScore >= 0.8) {
+            riskLevel.textContent = "HIGH";
+            riskLevel.className = "value high";
+        } else if (riskScore >= 0.5) {
+            riskLevel.textContent = "MEDIUM";
+            riskLevel.className = "value medium";
+        } else {
+            riskLevel.textContent = "LOW";
+            riskLevel.className = "value low";
+        }
+        
+        // Set risk score
+        scoreElement.textContent = Number(riskScore).toFixed(2);
+        
+        // Set timestamp
+        const now = new Date();
+        timestamp.textContent = now.toLocaleString();
+        
+        // Set reason
+        reason.textContent = alert.recommended_action || alert.message;
+        
+        // Show overlay
+        overlay.classList.remove("hidden");
+        
+        // Bind close handlers
+        document.getElementById("closeAnomalyBtn").onclick = () => this.closeAnomalyAlert();
+        document.getElementById("acknowledgeAnomalyBtn").onclick = () => this.closeAnomalyAlert();
+        document.getElementById("logoutAnomalyBtn").onclick = () => this.logout();
+        
+        // Log event for security audit
+        console.warn("🚨 Anomaly Alert Displayed:", {
+            message: alert.message,
+            riskScore: riskScore,
+            timestamp: now.toISOString()
+        });
+    }
+
+    // ✅ NEW METHOD: Display session terminated alert
+    displaySessionTerminatedAlert(reason) {
+        const overlay = document.getElementById("anomalyAlertOverlay");
+        const header = overlay.querySelector(".anomaly-alert-header h2");
+        const message = document.getElementById("anomalyMessage");
+        const body = document.getElementById("anomalyAlertOverlay").querySelector(".anomaly-alert-body");
+        
+        // Update header
+        header.textContent = "🛑 Session Terminated";
+        
+        // Update message
+        message.textContent = reason || "Your session has been terminated due to security policy violation.";
+        
+        // Hide details section
+        const details = body.querySelector(".anomaly-details");
+        if (details) details.style.display = "none";
+        
+        // Update footer buttons
+        const footer = overlay.querySelector(".anomaly-alert-footer");
+        footer.innerHTML = `
+            <button id="okLogoutBtn" class="primary-btn anomaly-confirm" style="width: 100%;">
+                Logout Now
+            </button>
+        `;
+        
+        document.getElementById("okLogoutBtn").onclick = () => this.logout();
+        
+        // Show overlay
+        overlay.classList.remove("hidden");
+        
+        console.error("🛑 Session Terminated:", {
+            reason: reason,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    // ✅ NEW METHOD: Close anomaly alert
+    closeAnomalyAlert() {
+        const overlay = document.getElementById("anomalyAlertOverlay");
+        overlay.classList.add("hidden");
     }
 
     async loadProjects() {

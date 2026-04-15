@@ -7,7 +7,8 @@
     <title>Freelancer Workspace</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -25,7 +26,8 @@
             <div id="statusCard" class="status-card status-normal">
                 <div class="status-icon-container">
                     <div id="statusIcon" class="status-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                            stroke-linecap="round" stroke-linejoin="round">
                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                         </svg>
                     </div>
@@ -179,6 +181,50 @@
                         </div>
                         <pre id="realtimeMonitorData" class="monitor-output">Loading...</pre>
                     </article>
+                </div>
+                <!-- ANOMALY ALERT OVERLAY - Add this new section -->
+                <div id="anomalyAlertOverlay" class="anomaly-alert-overlay hidden">
+                    <div class="anomaly-alert-card">
+                        <div class="anomaly-alert-header">
+                            <div class="anomaly-alert-icon">⚠️</div>
+                            <h2>Behavioral Anomaly Detected</h2>
+                            <button id="closeAnomalyBtn" class="close-btn">&times;</button>
+                        </div>
+
+                        <div class="anomaly-alert-body">
+                            <p id="anomalyMessage" class="anomaly-message">
+                                Unusual behavior patterns detected in your session.
+                            </p>
+
+                            <div class="anomaly-details">
+                                <div class="detail-item">
+                                    <span class="label">Risk Level:</span>
+                                    <span id="riskLevel" class="value high">HIGH</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="label">Risk Score:</span>
+                                    <span id="anomalyRiskScore" class="value">0.85</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="label">Timestamp:</span>
+                                    <span id="anomalyTimestamp" class="value">2026-04-15 10:30:45</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="label">Reason:</span>
+                                    <span id="anomalyReason" class="value">Unusual keystroke pattern</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="anomaly-alert-footer">
+                            <button id="acknowledgeAnomalyBtn" class="primary-btn anomaly-confirm">
+                                Acknowledge & Continue
+                            </button>
+                            <button id="logoutAnomalyBtn" class="secondary-btn anomaly-logout">
+                                Logout Safely
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </section>
 
