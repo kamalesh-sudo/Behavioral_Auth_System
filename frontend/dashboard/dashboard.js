@@ -780,23 +780,26 @@ class WorkspaceApp {
                 document.getElementById("riskScore").textContent = Number(this.riskScore).toFixed(2);
                 this.updateRiskCoverage(data.riskExplanation || {});
                 
+                console.log(`[Realtime] Risk score updated: ${this.riskScore}`, data.alert ? "ALERT RECEIVED" : "Normal");
+
                 // Keep the integrated status card pulsing logic
-                if (data.alert || Number(this.riskScore) > 0.45) {
+                if (data.alert || Number(this.riskScore) > 0.40) {
                     this.updateStatusUI(true, { reason: data.alert ? data.alert.message : "High behavioral risk" });
                 } else if (Number(this.riskScore) < 0.25) {
                     this.updateStatusUI(false);
                 }
 
                 if (data.alert) {
-                    // ✅ Use custom overlay instead of native alert()
+                    console.warn("⚠️ [Security] Anomaly alert received:", data.alert);
                     this.displayAnomalyAlert(data.alert, data.riskScore);
                     this.setStatus(`Risk alert: ${data.alert.message}`);
                 }
             } else if (data.type === "error") {
+                console.error("❌ [Realtime] Error from server:", data.message);
                 this.setStatus(data.message || "Realtime error");
                 this.setRiskCoverageText("Signal: realtime error");
             } else if (data.type === "session_terminated") {
-                // ✅ Use custom overlay instead of native alert()
+                console.error("🛑 [Security] Session terminate signal received:", data.reason);
                 this.displaySessionTerminatedAlert(data.reason);
             }
         };

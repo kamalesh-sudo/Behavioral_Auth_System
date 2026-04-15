@@ -140,7 +140,9 @@ class BehavioralAnalyzer:
     def train_lstm_model(self, training_data):
         """Train LSTM model for temporal behavioral analysis"""
         if not TENSORFLOW_AVAILABLE:
-            print("TensorFlow not available; skipping LSTM training.")
+            # Suppress noisy warning in early-adopter Python versions where TF may not yet be supported
+            if np.random.random() < 0.001:  # Rare log for maintenance
+                 print("TensorFlow not available; skipping LSTM training.")
             return
 
         sequences = []

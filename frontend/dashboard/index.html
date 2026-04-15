@@ -182,50 +182,6 @@
                         <pre id="realtimeMonitorData" class="monitor-output">Loading...</pre>
                     </article>
                 </div>
-                <!-- ANOMALY ALERT OVERLAY - Add this new section -->
-                <div id="anomalyAlertOverlay" class="anomaly-alert-overlay hidden">
-                    <div class="anomaly-alert-card">
-                        <div class="anomaly-alert-header">
-                            <div class="anomaly-alert-icon">⚠️</div>
-                            <h2>Behavioral Anomaly Detected</h2>
-                            <button id="closeAnomalyBtn" class="close-btn">&times;</button>
-                        </div>
-
-                        <div class="anomaly-alert-body">
-                            <p id="anomalyMessage" class="anomaly-message">
-                                Unusual behavior patterns detected in your session.
-                            </p>
-
-                            <div class="anomaly-details">
-                                <div class="detail-item">
-                                    <span class="label">Risk Level:</span>
-                                    <span id="riskLevel" class="value high">HIGH</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="label">Risk Score:</span>
-                                    <span id="anomalyRiskScore" class="value">0.85</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="label">Timestamp:</span>
-                                    <span id="anomalyTimestamp" class="value">2026-04-15 10:30:45</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="label">Reason:</span>
-                                    <span id="anomalyReason" class="value">Unusual keystroke pattern</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="anomaly-alert-footer">
-                            <button id="acknowledgeAnomalyBtn" class="primary-btn anomaly-confirm">
-                                Acknowledge & Continue
-                            </button>
-                            <button id="logoutAnomalyBtn" class="secondary-btn anomaly-logout">
-                                Logout Safely
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </section>
 
             <div id="statusBar" class="status">Ready</div>
@@ -261,6 +217,52 @@
             <div class="modal-actions">
                 <button id="cancelEditTaskBtn" class="secondary-btn">Cancel</button>
                 <button id="saveEditTaskBtn" class="primary-btn">Save Task</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- GLOBAL ANOMALY ALERT OVERLAY - Relocated to root for global visibility -->
+    <div id="anomalyAlertOverlay" class="anomaly-alert-overlay hidden">
+        <div class="anomaly-alert-card">
+            <div class="anomaly-alert-header">
+                <div class="anomaly-alert-icon">⚠️</div>
+                <h2>Behavioral Anomaly Detected</h2>
+                <button id="closeAnomalyBtn" class="close-btn">&times;</button>
+            </div>
+
+            <div class="anomaly-alert-body">
+                <p id="anomalyMessage" class="anomaly-message">
+                    Unusual behavior patterns detected in your session.
+                </p>
+
+                <div class="anomaly-details">
+                    <div class="detail-item">
+                        <span class="label">Risk Level:</span>
+                        <span id="riskLevel" class="value high">HIGH</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Risk Score:</span>
+                        <span id="anomalyRiskScore" class="value">0.85</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Timestamp:</span>
+                        <span id="anomalyTimestamp" class="value">2026-04-15 10:30:45</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Reason:</span>
+                        <span id="anomalyReason" class="value">Unusual keystroke pattern</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="anomaly-alert-footer">
+                <button id="acknowledgeAnomalyBtn" class="primary-btn anomaly-confirm">
+                    Acknowledge & Continue
+                </button>
+                <button id="logoutAnomalyBtn" class="secondary-btn anomaly-logout">
+                    Logout Safely
+                </button>
             </div>
         </div>
     </div>

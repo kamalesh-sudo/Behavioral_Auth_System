@@ -583,12 +583,13 @@ textarea {
 .anomaly-alert-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-    backdrop-filter: blur(4px);
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(8px);
     display: grid;
     place-items: center;
-    z-index: 9999;
+    z-index: 10000;
     opacity: 1;
+    visibility: visible !important;
     animation: slideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     pointer-events: all;
 }

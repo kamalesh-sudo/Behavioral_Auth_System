@@ -1,5 +1,6 @@
 import asyncio
 import os
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -37,6 +38,7 @@ realtime_service = RealtimeBehaviorService(settings, db)
 app = FastAPI(title=settings.app_name)
 router = APIRouter()
 AUTH_TOKEN = os.environ.get("AUTH_TOKEN")
+logger = logging.getLogger("behavioral.main")
 
 app.add_middleware(
     CORSMiddleware,
@@ -719,13 +721,45 @@ async def start_background_tasks() -> None:
 
 @app.websocket("/ws/behavioral")
 async def behavioral_websocket(websocket: WebSocket) -> None:
-    token = _extract_websocket_token(websocket)
-    if not token:
-        await websocket.close(code=1008, reason="Authentication token missing")
+    client = f"{websocket.client.host}:{websocket.client.port}" if websocket.client else "unknown"
+    client_ip = websocket.client.host if websocket.client else None
+    ws_id = id(websocket)
+    logger.info("WS [%d] Connection attempt from %s", ws_id, client)
+    
+    # 1. IMMEDIATE IP BLOCK CHECK (Pre-Handshake)
+    if client_ip and db.is_ip_blocked(client_ip):
+        logger.warning("WS [%d] %s: REJECTED - IP Blocked", ws_id, client)
+        await websocket.close(code=1008, reason="IP address blocked by security policy")
         return
-    if not _is_valid_websocket_token(token):
+
+    # 2. TOKEN VALIDATION (Pre-Handshake)
+    token = _extract_websocket_token(websocket)
+    if not token or not _is_valid_websocket_token(token):
+        logger.warning("WS [%d] %s: REJECTED - Invalid Token", ws_id, client)
         await websocket.close(code=1008, reason="Invalid authentication token")
         return
+
+    # 3. USER BLOCK CHECK (Pre-Handshake)
+    try:
+        claims = verify_access_token(token, settings)
+        username = claims.get("sub")
+        if username and db.is_user_blocked(username):
+            logger.warning("WS [%d] %s: REJECTED - User %s is Blocked", ws_id, client, username)
+            await websocket.close(code=1008, reason="User account is blocked")
+            return
+    except Exception:
+        # verify_access_token failed, but _is_valid_websocket_token might have been true for AUTH_TOKEN constant
+        pass
+
+    # 4. HANDSHAKE (Only if all security checks pass)
+    try:
+        await websocket.accept()
+        logger.info("WS [%d] %s: Handshake accepted", ws_id, client)
+    except Exception as exc:
+        logger.error("WS [%d] %s: Handshake failed: %s", ws_id, client, exc)
+        return
+
+    # Pass the already-validated websocket to the service
     await realtime_service.handle_client(websocket)
 
 frontend_dir = Path(settings.frontend_dir)

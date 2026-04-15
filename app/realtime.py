@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import anyio
 from fastapi import WebSocket
-from starlette.websockets import WebSocketDisconnect
+from starlette.websockets import WebSocketDisconnect, WebSocketState
 
 from app.alerts import send_security_alert
 from app.config import Settings
@@ -69,18 +69,28 @@ class RealtimeBehaviorService:
         return value or None
 
     async def handle_client(self, websocket: WebSocket) -> None:
-        await websocket.accept()
         client = websocket.client
         remote = f"{client.host}:{client.port}" if client else "unknown"
         client_ip = self._extract_ws_ip(websocket)
-        if self.db.is_ip_blocked(client_ip):
-            self._record_event("ws_rejected_ip_blocked", ip_address=client_ip, remote=remote)
-            await websocket.close(code=1008, reason="IP blocked")
+        ws_id = id(websocket)
+        
+        # Wait guard for Starlette state transition 
+        wait_attempts = 0
+        while websocket.client_state == WebSocketState.CONNECTING and wait_attempts < 10:
+            await asyncio.sleep(0.05)
+            wait_attempts += 1
+            
+        self.logger.info("WS [%d] Handling client %s (state: %s, waits: %d)", ws_id, remote, websocket.client_state, wait_attempts)
+        
+        if websocket.client_state != WebSocketState.CONNECTED:
+            self.logger.error("WS [%d] Client %s state is %s (expected CONNECTED)", ws_id, remote, websocket.client_state)
             return
+
         self.metrics["connections_total"] += 1
         self.metrics["connections_active"] += 1
         self._record_event("ws_connected", remote=remote)
         try:
+            self.logger.debug("Starting authentication for %s", remote)
             claims = await self._authenticate_connection(websocket)
             self.connection_auth[websocket] = claims
             self.metrics["auth_success"] += 1
@@ -90,16 +100,41 @@ class RealtimeBehaviorService:
                 user_id=claims.get("user_id"),
                 remote=remote,
             )
+            
+            self.logger.info("Client %s authenticated, entering message loop", remote)
             while True:
-                message = await websocket.receive_text()
+                if websocket.client_state != WebSocketState.CONNECTED:
+                    self.logger.warning("WS [%d] %s: State changed to %s, exiting loop", ws_id, remote, websocket.client_state)
+                    break
+                
+                try:
+                    message = await websocket.receive_text()
+                except Exception as exc:
+                    self.logger.info("WS [%d] %s: Loop receive failed (likely closed): %s", ws_id, remote, exc)
+                    break
+                    
                 await self._process_message(websocket, message)
+                
+                # Critical check: did _process_message just initiate a close (e.g. anomaly block)?
+                if websocket.client_state != WebSocketState.CONNECTED:
+                    self.logger.info("WS [%d] %s: State post-process is %s, breaking loop", ws_id, remote, websocket.client_state)
+                    break
         except WebSocketDisconnect:
+            self.logger.info("Client %s disconnected", remote)
             self._record_event("ws_disconnected", remote=remote)
+        except Exception as exc:
+            self.logger.exception("Error in handle_client for %s: %s", remote, exc)
         finally:
             self.connection_auth.pop(websocket, None)
             self.metrics["connections_active"] = max(0, self.metrics["connections_active"] - 1)
+            self.logger.debug("Cleaned up connection for %s", remote)
 
     async def _authenticate_connection(self, websocket: WebSocket) -> dict:
+        ws_id = id(websocket)
+        if websocket.client_state != WebSocketState.CONNECTED:
+            self.logger.error("WS [%d] _authenticate_connection in state %s", ws_id, websocket.client_state)
+            raise WebSocketDisconnect
+            
         auth_message = await websocket.receive_text()
         try:
             auth_data = json.loads(auth_message)
@@ -257,7 +292,33 @@ class RealtimeBehaviorService:
                 user_info["user"]["id"], session_id, keystroke_data, mouse_data, eye_data, risk_score
             )
 
+        # Build standard response with alert metadata BEFORE blocking decisions
+        response = {
+            "type": "analysis_result",
+            "sessionId": session_id,
+            "effectiveUser": username,
+            "riskScore": risk_score,
+            "riskExplanation": risk_explanation,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        if debug_requested:
+            response["modelIO"] = model_io
+            
+        if risk_score > self.settings.high_risk_threshold:
+            response["alert"] = {
+                "level": "HIGH",
+                "message": "Unusual behavioral patterns detected",
+                "recommended_action": "Require additional authentication",
+            }
+        elif risk_score > 0.35:
+            response["alert"] = {"level": "MEDIUM", "message": "Behavioral patterns slightly deviate from norm"}
+
+        # Send result to UI
+        await websocket.send_text(json.dumps(response))
+
+        # Now decide if we must block based on separated threshold
         if risk_score >= self.settings.anomaly_block_threshold:
+            self.logger.warning("WS [%d] High risk (%.4f) - Triggering Block", id(websocket), risk_score)
             reason = "Behavioral anomaly detected in real-time monitoring"
             self.metrics["anomalies_blocked"] += 1
             self._record_event(
@@ -300,27 +361,6 @@ class RealtimeBehaviorService:
             )
             await self._terminate_session(session_id, username, risk_score, reason)
             return
-
-        response = {
-            "type": "analysis_result",
-            "sessionId": session_id,
-            "effectiveUser": username,
-            "riskScore": risk_score,
-            "riskExplanation": risk_explanation,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        if debug_requested:
-            response["modelIO"] = model_io
-        if risk_score > self.settings.high_risk_threshold:
-            response["alert"] = {
-                "level": "HIGH",
-                "message": "Unusual behavioral patterns detected",
-                "recommended_action": "Require additional authentication",
-            }
-        elif risk_score > 0.5:
-            response["alert"] = {"level": "MEDIUM", "message": "Behavioral patterns slightly deviate from norm"}
-
-        await websocket.send_text(json.dumps(response))
 
     async def _handle_user_authentication(self, websocket: WebSocket, data: dict) -> None:
         username = data.get("userId") or self.connection_auth.get(websocket, {}).get("sub")
@@ -490,13 +530,16 @@ class RealtimeBehaviorService:
         ws = self.user_sessions.get(session_id, {}).get("websocket")
         if ws:
             try:
+                # Send terminal message
                 await ws.send_text(json.dumps(payload))
-            except Exception:  # pylint: disable=broad-except
-                pass
-            try:
-                await ws.close(code=1008, reason="Session terminated due to behavioral anomaly")
-            except Exception:  # pylint: disable=broad-except
-                pass
+                
+                # Handshake drain: give client a few frames to render the alert before TCP teardown
+                await asyncio.sleep(0.3)
+                
+                if ws.client_state == WebSocketState.CONNECTED:
+                    await ws.close(code=1008, reason="Session terminated due to behavioral anomaly")
+            except Exception as exc:  # pylint: disable=broad-except
+                self.logger.debug("Error while closing terminated WS: %s", exc)
         self._record_event(
             "session_terminated",
             username=username,

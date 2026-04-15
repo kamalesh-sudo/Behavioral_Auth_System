@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     upload_dir: str = str((Path(__file__).resolve().parents[1] / "uploads"))
 
     # Presentation defaults: trigger risk decisions faster for live demos.
-    high_risk_threshold: float = 0.6
-    anomaly_block_threshold: float = 0.6
+    high_risk_threshold: float = 0.45
+    anomaly_block_threshold: float = 0.70
     max_behavior_history_limit: int = 100
     global_train_interval_seconds: int = 300
     global_train_min_samples: int = 30
