@@ -440,3 +440,114 @@ textarea {
         grid-template-columns: 1fr;
     }
 }
+
+/* Behavioral Status Card */
+.status-card {
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 2px solid transparent;
+}
+
+.status-icon-container {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.2);
+    transition: transform 0.3s ease;
+}
+
+.status-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.status-content {
+    flex: 1;
+}
+
+.status-title {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 2px;
+}
+
+.status-desc {
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.status-action-btn {
+    width: 100%;
+    margin-top: 12px;
+    background: #ffffff;
+    color: #ef4444;
+    border: none;
+    border-radius: 8px;
+    padding: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.status-action-btn:hover {
+    background: #fee2e2;
+    transform: translateY(-1px);
+}
+
+/* Normal State */
+.status-normal {
+    background: linear-gradient(135deg, #065f46 0%, #047857 100%);
+    color: #ecfdf5;
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.status-normal .status-icon-container {
+    background: rgba(240, 253, 244, 0.15);
+}
+
+/* Anomaly Detected State */
+.status-anomaly {
+    background: linear-gradient(135deg, #991b1b 0%, #b91c1c 100%);
+    color: #fef2f2;
+    animation: pulse-red 2s infinite;
+    border-color: #f87171;
+}
+
+.status-anomaly .status-icon-container {
+    background: rgba(254, 242, 242, 0.2);
+    transform: scale(1.1);
+}
+
+@keyframes pulse-red {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        border-color: #f87171;
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+        border-color: #ef4444;
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        border-color: #f87171;
+    }
+}
+
+.highlight-panel {
+    animation: highlight-fade 2s ease;
+}
+
+@keyframes highlight-fade {
+    0% { outline: 3px solid #ef4444; box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+    100% { outline: 3px solid transparent; box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07); }
+}

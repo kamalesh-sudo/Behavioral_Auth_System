@@ -268,6 +268,7 @@ class BehavioralAnalyzer:
                     "reason": "empty_features",
                     "components": {"fallback": 0.05},
                     "top_deviations": [],
+                    "modality_coverage": 0.0,
                 }
                 self._store_debug_io(
                     user_id=user_id,
@@ -310,6 +311,7 @@ class BehavioralAnalyzer:
                 "reason": "global_model",
                 "components": {"global": float(risk), "context": float(self._context_novelty_risk(user_id, context))},
                 "top_deviations": [],
+                "modality_coverage": self._calculate_modality_coverage(features),
             }
             self._store_debug_io(
                 user_id=user_id,
@@ -320,6 +322,23 @@ class BehavioralAnalyzer:
                 explanation=self.last_explanations[user_id],
             )
         return self._smoothed_risk(user_id, risk)
+
+    def _calculate_modality_coverage(self, features: dict) -> float:
+        """Calculate percentage of active behavioral modalities (Keystroke, Mouse, Eye)"""
+        if not features:
+            return 0.0
+        
+        # Check for presence of key features from each modality
+        has_keystroke = any(k.startswith("dwell_") for k in features.keys())
+        has_mouse = any(k.startswith("mouse_speed_") or k.startswith("jerk_") for k in features.keys())
+        has_eye = any(k.startswith("eye_") for k in features.keys())
+        
+        total = 0.0
+        if has_keystroke: total += 0.33
+        if has_mouse: total += 0.33
+        if has_eye: total += 0.34
+        
+        return round(total, 2)
     
     def analyze_with_user_model(self, features, user_id, context=None):
         """Analyze using user-specific model"""
@@ -352,6 +371,7 @@ class BehavioralAnalyzer:
             + (0.03 * separation_risk)
             + (0.07 * profile_z_spike_risk)
         )
+        coverage = self._calculate_modality_coverage(features)
         explanation = {
             "reason": "user_model",
             "components": {
@@ -363,6 +383,7 @@ class BehavioralAnalyzer:
                 "impostor": float(impostor_risk),
                 "separation": float(separation_risk),
                 "profile_z_spike": float(profile_z_spike_risk),
+                "modality_coverage": float(coverage),
             },
             "top_deviations": top_deviations,
         }

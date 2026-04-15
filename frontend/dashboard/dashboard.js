@@ -40,6 +40,7 @@ class WorkspaceApp {
         this.refreshUserRole();
         this.initRealtime();
         this.loadProjects();
+        this.initStatusCard();
     }
 
     generateDeviceFingerprint() {
@@ -178,7 +179,55 @@ class WorkspaceApp {
         document.getElementById("statusBar").textContent = message;
     }
 
+    initStatusCard() {
+        this.statusCard = document.getElementById("statusCard");
+        this.statusIcon = document.getElementById("statusIcon");
+        this.statusTitle = document.getElementById("statusTitle");
+        this.statusDesc = document.getElementById("statusDesc");
+        this.statusBtn = document.getElementById("statusActionBtn");
+
+        this.statusBtn.addEventListener("click", () => {
+            const securityPanel = document.getElementById("securityPanel");
+            if (securityPanel) {
+                securityPanel.scrollIntoView({ behavior: "smooth" });
+                securityPanel.classList.add("highlight-panel");
+                setTimeout(() => securityPanel.classList.remove("highlight-panel"), 2000);
+            }
+        });
+    }
+
+    updateStatusUI(isAnomaly, metadata = {}) {
+        if (!this.statusCard) return;
+
+        if (isAnomaly) {
+            this.statusCard.classList.remove("status-normal");
+            this.statusCard.classList.add("status-anomaly");
+            this.statusTitle.textContent = "Anomaly Detected";
+            this.statusDesc.textContent = metadata.reason || "Behavioral mismatch detected";
+            this.statusBtn.classList.remove("hidden");
+            this.statusIcon.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>`;
+        } else {
+            this.statusCard.classList.remove("status-anomaly");
+            this.statusCard.classList.add("status-normal");
+            this.statusTitle.textContent = "System Normal";
+            this.statusDesc.textContent = "Identity verified via behavior";
+            this.statusBtn.classList.add("hidden");
+            this.statusIcon.innerHTML = `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>`;
+        }
+    }
+
     setRiskCoverageText(message) {
+        if (message) {
+            console.log("[Signal Status]", message);
+        }
         const el = document.getElementById("riskCoverageText");
         if (!el) return;
         el.textContent = message;
@@ -236,21 +285,21 @@ class WorkspaceApp {
     }
 
     updateRiskCoverage(explanation = {}) {
-        const el = document.getElementById("riskCoverageText");
-        if (!el) return;
         const components = explanation && typeof explanation === "object" ? (explanation.components || {}) : {};
         const coverage = Number(components.modality_coverage);
         if (!Number.isFinite(coverage)) {
-            el.textContent = "Signal: unknown coverage";
+            this.setRiskCoverageText("Signal: unknown coverage");
             return;
         }
         const pct = Math.round(coverage * 100);
-        if (coverage >= 0.99) {
-            el.textContent = `Signal: full (typing + mouse) ${pct}%`;
-        } else if (coverage >= 0.49) {
-            el.textContent = `Signal: partial (typing-only or mouse-only) ${pct}%`;
+        if (coverage >= 0.95) {
+            this.setRiskCoverageText(`Signal: full (typing + mouse + eye) ${pct}%`);
+        } else if (coverage >= 0.5) {
+            this.setRiskCoverageText(`Signal: partial (any 2 modes active) ${pct}%`);
+        } else if (coverage > 0.05) {
+            this.setRiskCoverageText(`Signal: sparse (single mode active) ${pct}%`);
         } else {
-            el.textContent = `Signal: sparse ${pct}%`;
+            this.setRiskCoverageText("Signal: waiting for data");
         }
     }
 
@@ -728,8 +777,17 @@ class WorkspaceApp {
                     return;
                 }
                 this.riskScore = data.riskScore;
+                console.log("[Risk Score]", Number(this.riskScore).toFixed(2));
                 document.getElementById("riskScore").textContent = Number(this.riskScore).toFixed(2);
                 this.updateRiskCoverage(data.riskExplanation || {});
+                
+                // Update Status Card based on risk
+                if (data.alert || Number(this.riskScore) > 0.45) {
+                    this.updateStatusUI(true, { reason: data.alert ? data.alert.message : "High behavioral risk" });
+                } else if (Number(this.riskScore) < 0.25) {
+                    this.updateStatusUI(false);
+                }
+
                 if (data.alert) {
                     this.setStatus(`Risk alert: ${data.alert.message}`);
                 }
