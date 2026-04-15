@@ -362,14 +362,11 @@ class BehavioralAnalyzer:
         impostor_risk, impostor_hint = self._cross_user_impostor_risk(user_id, features, keys)
         separation_risk = self._identity_separation_risk(user_id, features, keys)
         combined = (
-            (0.35 * model_risk)
-            + (0.35 * distance_risk)
-            + (0.08 * drift_risk)
-            + (0.04 * global_risk)
-            + (0.03 * context_risk)
-            + (0.05 * impostor_risk)
-            + (0.03 * separation_risk)
-            + (0.07 * profile_z_spike_risk)
+            (0.50 * model_risk)        # User-specific anomaly model (Isolation Forest)
+            + (0.45 * distance_risk)   # Statistical distance (Pattern-First Z-Score)
+            + (0.02 * drift_risk)      # Recent vs previous consistency
+            + (0.01 * global_risk)     # Population-level matching (minimal)
+            + (0.02 * impostor_risk)    # Cross-user mimicry detection
         )
         coverage = self._calculate_modality_coverage(features)
         explanation = {
@@ -571,17 +568,41 @@ class BehavioralAnalyzer:
             return 0.35, []
         matrix = np.array([[sample.get(k, 0.0) for k in keys] for sample in history], dtype=float)
         baseline_mean = np.mean(matrix, axis=0)
-        baseline_std = np.std(matrix, axis=0) + 1e-6
+        baseline_std = np.std(matrix, axis=0)
+        # Apply a floor of 5% of the mean to prevent hypersensitivity on stable features.
+        # This allows for natural pace shifts (like 'Slow Alice') without triggering false alarms.
+        std_floor = 0.05 * np.abs(baseline_mean) + 1e-6
+        baseline_std = np.maximum(baseline_std, std_floor)
+        
         current = np.array([features.get(k, 0.0) for k in keys], dtype=float)
         z = np.abs((current - baseline_mean) / baseline_std)
-        # Robust aggregated shift from normal behavior.
-        z_score = self._aggregate_shift(z)
+        
+        # Categorize features to separate 'What' (Pattern) from 'How Fast' (Intensity)
+        agnostic_mask = np.array([any(x in k for x in ["ratio", "entropy", "complexity", "consistency", "modifier", "error", "efficiency", "norm"]) for k in keys])
+        
+        z_pattern = z[agnostic_mask]
+        z_intensity = z[~agnostic_mask]
+        
+        pattern_shift = self._aggregate_shift(z_pattern) if z_pattern.size > 0 else 0.0
+        intensity_shift = self._aggregate_shift(z_intensity) if z_intensity.size > 0 else 0.0
+
+        # Identity-first logic: Aggressively favor Pattern over Intensity.
+        if pattern_shift < 0.8:
+            # Rhythms match: ignore speed changes (Intensity) almost entirely.
+            distance_risk = float(pattern_shift * 0.9 + (intensity_shift * 0.01))
+        elif pattern_shift < 1.5:
+            # Rhythms slightly deviating: start considering intensity.
+            distance_risk = float(pattern_shift * 0.8 + (intensity_shift * 0.2))
+        else:
+            # Identity is unlikely: full additive risk.
+            distance_risk = float(pattern_shift * 0.7 + (intensity_shift * 0.3))
+
         top_idx = np.argsort(z)[-5:][::-1]
         top_deviations = [
             {"feature": keys[int(i)], "z_score": float(z[int(i)]), "value": float(current[int(i)]), "baseline": float(baseline_mean[int(i)])}
             for i in top_idx
         ]
-        return float(np.clip(z_score / 4.0, 0.0, 1.0)), top_deviations
+        return float(np.clip(distance_risk / 4.0, 0.0, 1.0)), top_deviations
 
     def _temporal_drift_risk(self, user_id: str, features: dict, keys: list[str]) -> float:
         history = self.user_feature_history[user_id]
@@ -594,9 +615,13 @@ class BehavioralAnalyzer:
         previous_matrix = np.array([[sample.get(k, 0.0) for k in keys] for sample in previous], dtype=float)
         recent_mean = np.mean(recent_matrix, axis=0)
         previous_mean = np.mean(previous_matrix, axis=0)
-        reference_std = np.std(previous_matrix, axis=0) + 1e-6
+        reference_std = np.std(previous_matrix, axis=0)
+        std_floor = 0.05 * np.abs(previous_mean) + 1e-6
+        reference_std = np.maximum(reference_std, std_floor)
+        
         drift_z = np.abs((recent_mean - previous_mean) / reference_std)
-        return float(np.clip(self._aggregate_shift(drift_z) / 4.0, 0.0, 1.0))
+        # Use agnostic-aware aggregation for drift too
+        return float(np.clip(self._aggregate_shift(drift_z, keys) / 4.0, 0.0, 1.0))
 
     def _profile_specific_spike_risk(self, user_id: str, features: dict) -> tuple[float, list[dict]]:
         """
@@ -651,13 +676,16 @@ class BehavioralAnalyzer:
             return 3.0
         matrix = np.array([[sample.get(k, 0.0) for k in keys] for sample in history], dtype=float)
         baseline_mean = np.mean(matrix, axis=0)
-        baseline_std = np.std(matrix, axis=0) + 1e-6
+        baseline_std = np.std(matrix, axis=0)
+        std_floor = 0.05 * np.abs(baseline_mean) + 1e-6
+        baseline_std = np.maximum(baseline_std, std_floor)
+        
         current = np.array([features.get(k, 0.0) for k in keys], dtype=float)
         z = np.abs((current - baseline_mean) / baseline_std)
-        return float(BehavioralAnalyzer._aggregate_shift(z))
+        return float(BehavioralAnalyzer._aggregate_shift(z, keys))
 
     @staticmethod
-    def _aggregate_shift(z_values: np.ndarray) -> float:
+    def _aggregate_shift(z_values: np.ndarray, keys: list[str] = None) -> float:
         """Aggregate per-feature z-shifts without losing sparse but important deviations."""
         if z_values.size == 0:
             return 0.0
@@ -665,6 +693,15 @@ class BehavioralAnalyzer:
         z = z[np.isfinite(z)]
         if z.size == 0:
             return 0.0
+        
+        # Boost weight for ratio-based and complexity features which are speed-agnostic
+        if keys and len(keys) == z.size:
+            weights = np.ones_like(z)
+            for i, key in enumerate(keys):
+                if any(x in key for x in ["ratio", "entropy", "complexity", "consistency"]):
+                    weights[i] = 2.5 # Give 2.5x more importance to agnostic features
+            z = z * weights
+
         capped = np.clip(z, 0.0, 12.0)
         p50 = float(np.percentile(capped, 50))
         p75 = float(np.percentile(capped, 75))
@@ -672,7 +709,9 @@ class BehavioralAnalyzer:
         tail = float(np.mean(np.partition(capped, -top_k)[-top_k:]))
         active_ratio = float(np.mean(capped > 1.0))
         ratio_term = 4.0 * active_ratio
-        return float((0.35 * p50) + (0.30 * p75) + (0.25 * tail) + (0.10 * ratio_term))
+        
+        # Highly sensitive for 'tail' deviations (specific features being very off)
+        return float((0.20 * p50) + (0.25 * p75) + (0.45 * tail) + (0.10 * ratio_term))
 
     def _cross_user_impostor_risk(self, user_id: str, features: dict, keys: list[str]) -> tuple[float, dict]:
         own_history = self.user_feature_history[user_id]
@@ -784,11 +823,11 @@ class BehavioralAnalyzer:
         separation_risk = float(components.get("separation", 0.0))
         profile_z_spike_risk = float(components.get("profile_z_spike", 0.0))
         if (
-            distance_risk >= 0.75
-            or model_risk >= 0.75
-            or impostor_risk >= 0.45
-            or separation_risk >= 0.55
-            or profile_z_spike_risk >= 0.45
+            distance_risk >= 0.70      # More sensitive threshold for statistical deviation
+            or model_risk >= 0.70      # More sensitive threshold for anomaly detection
+            or impostor_risk >= 0.40
+            or separation_risk >= 0.50
+            or profile_z_spike_risk >= 0.40
         ):
             return False
         return float(risk) <= float(self.profile_update_risk_threshold)

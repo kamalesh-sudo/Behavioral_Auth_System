@@ -302,9 +302,18 @@ class BehavioralFeatureExtractor:
             dwell_mean = float(np.mean(dwell_arr))
             features["dwell_cv"] = float((np.std(dwell_arr) / max(1e-6, dwell_mean)))
             features["dwell_variance"] = float(np.var(dwell_arr))
+            features["dwell_variance_norm"] = float(np.var(dwell_arr) / max(1e-6, dwell_mean**2))
         else:
             features["dwell_cv"] = 0.0
             features["dwell_variance"] = 0.0
+            features["dwell_variance_norm"] = 0.0
+
+        if dwell_times and flight_times:
+            total_dwell = np.sum(dwell_times)
+            total_flight = np.sum(flight_times)
+            features["dwell_flight_ratio"] = float(total_dwell / max(1e-6, total_dwell + total_flight))
+        else:
+            features["dwell_flight_ratio"] = 0.5
 
         if ikl_latencies:
             ikl_arr = np.asarray(ikl_latencies, dtype=float)
@@ -490,6 +499,22 @@ class BehavioralFeatureExtractor:
         features.update(self._safe_stats(curvatures, "curvature"))
         features.update(self._safe_stats(jerks, "jerk"))
 
+        if jerks and velocities:
+            avg_jerk = np.mean(jerks)
+            avg_velocity = np.mean(velocities)
+            features["velocity_normalized_jerk"] = float(avg_jerk / max(1e-6, avg_velocity))
+        else:
+            features["velocity_normalized_jerk"] = 0.0
+
+        if curvatures:
+            curv_arr = np.asarray(curvatures)
+            hist, _ = np.histogram(curv_arr, bins=10)
+            probs = hist / max(1e-6, np.sum(hist))
+            probs = probs[probs > 0]
+            features["curvature_complexity"] = float(-np.sum(probs * np.log2(probs))) if probs.size > 0 else 0.0
+        else:
+            features["curvature_complexity"] = 0.0
+
         if len(click_events) > 1:
             click_ts = [float(e["timestamp"]) for e in click_events]
             click_ts.sort()
@@ -540,6 +565,8 @@ class BehavioralFeatureExtractor:
             "modifier_key_ratio": 0.0,
             "dwell_cv": 0.0,
             "dwell_variance": 0.0,
+            "dwell_variance_norm": 0.0,
+            "dwell_flight_ratio": 0.5,
             "ikl_burstiness": 0.0,
             "digraph_th_latency_mean": 0.0,
             "digraph_th_latency_std": 0.0,
@@ -704,6 +731,8 @@ class BehavioralFeatureExtractor:
             "click_rate": 0.0,
             "click_to_move_ratio": 0.0,
             "mouse_events_count": 0.0,
+            "velocity_normalized_jerk": 0.0,
+            "curvature_complexity": 0.0,
         }
 
     def get_default_eye_features(self):
